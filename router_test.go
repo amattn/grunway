@@ -14,10 +14,8 @@ func TestNothing(t *testing.T) {
 }
 
 type AuthorController struct {
-	Controller
 }
 type BookController struct {
-	Controller
 }
 
 type AuthorPayload struct {
