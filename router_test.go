@@ -39,7 +39,7 @@ func (self *BookController) GetHandlerV1(ctx *Context) {
 	book.Name = "The Greatest Works of All Time"
 	book.AuthorId = 1
 
-	ctx.WriteEntityPayload(book)
+	ctx.WrapAndSendPayload(book)
 }
 func (self *BookController) GetHandlerV2(ctx *Context) {
 
@@ -94,6 +94,8 @@ func TestAPIRoutes(t *testing.T) {
 		"/api/v3/book/1":   http.StatusOK,
 		"/api/v4/book/1":   http.StatusNotFound,
 		"/api/v18/book/1":  http.StatusOK,
+		"/api/v1/book/":    http.StatusBadRequest,
+		"/api/v1/book":     http.StatusBadRequest,
 		"/api/v1/author/1": http.StatusOK,
 		"/api/v1/bogus/1":  http.StatusNotFound,
 
@@ -122,7 +124,7 @@ func TestAPIRoutes(t *testing.T) {
 		"/api/v1/author/": http.StatusNotFound,
 		"/api/v1/bogus/":  http.StatusNotFound,
 
-		"/api/v1/book/1": http.StatusMethodNotAllowed, // Create (POST) should never have a pk
+		"/api/v1/book/1": http.StatusBadRequest, // Create (POST) should never have a pk
 	}
 
 	for urlsuffix, expectedStatusCode := range postURLAndStatusCodes {
@@ -145,7 +147,7 @@ func TestAPIRoutes(t *testing.T) {
 		"/api/v1/author/1": http.StatusNotFound,
 		"/api/v1/bogus/1":  http.StatusNotFound,
 
-		"/api/v1/book/": http.StatusMethodNotAllowed, // Update (PUT) should always have a pk
+		"/api/v1/book/": http.StatusBadRequest, // Update (PUT) should always have a pk
 	}
 
 	for urlsuffix, expectedStatusCode := range putURLAndStatusCodes {
@@ -180,20 +182,20 @@ func TestPayload(t *testing.T) {
 	t.Log(bodyString)
 
 	// decode the json,
-	var payload Payload
-	json.Unmarshal(bodyBytes, &payload)
+	var pw PayloadWrapper
+	json.Unmarshal(bodyBytes, &pw)
 
-	//check errNum == 0
-	if payload.ErrNum != 0 {
-		t.Errorf("918188683 expected non-zero ErrStr, got %d\npayload:%+v", payload.ErrNum, payload)
+	//check errNo == 0
+	if pw.ErrNo != 0 {
+		t.Errorf("918188683 expected non-zero ErrStr, got %d\npayload:%+v", pw.ErrNo, pw)
 	}
 	//check pk matches expected,
 
-	if len(payload.Entities) != 1 {
-		t.Errorf("918188684 expected 1 entity, got %v\npayload:%+v", payload.ErrStr, payload)
+	if len(pw.PayloadList) != 1 {
+		t.Errorf("918188684 expected 1 entity, got %v\npayload:%+v", pw.ErrStr, pw)
 	}
 
-	for i, untypedEntity := range payload.Entities {
+	for i, untypedEntity := range pw.PayloadList {
 
 		jsonBytes, err := json.Marshal(untypedEntity)
 		if err != nil {

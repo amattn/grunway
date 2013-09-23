@@ -11,6 +11,19 @@ import (
 	"github.com/amattn/deeperror"
 )
 
+const (
+	NotFoundPrefix                 = "404 Not Found"
+	NotFoundErrNo                  = 4040000404
+	BadRequestPrefix               = "400 Bad Request"
+	BadRequestErrNo                = 4000000000
+	BadRequestSyntaxErrorPrefix    = BadRequestPrefix + ": Syntax Error"
+	BadRequestSyntaxErrorErrNo     = 4000000001
+	BadRequestExtraneousPKeyPrefix = BadRequestPrefix + ": Extraneous Id"
+	BadRequestExtraneousPKeyErrNo  = 4000000002
+	BadRequestMissingPKeyPrefix    = BadRequestPrefix + ": Missing Id"
+	BadRequestMissingPKeyErrNo     = 4000000003
+)
+
 type Router struct {
 	BasePath string
 
@@ -188,8 +201,13 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// 2. parse the route
 	endpoint, clientDeepErr, serverDeepErr := parsePath(req.URL, router.BasePath)
 
+	ctxPtr := new(Context) // needs a leakybucket
+	ctxPtr.W = w
+	ctxPtr.R = req
+	ctxPtr.E = endpoint
+
 	if clientDeepErr != nil {
-		http.Error(w, fmt.Sprintf("400 Bad Request: Please check syntax. (err code: %d)", clientDeepErr.Num), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("%s (err code: %d)", BadRequestSyntaxErrorPrefix, clientDeepErr.Num), http.StatusBadRequest)
 		return
 	}
 
@@ -203,32 +221,33 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil || routePtr == nil {
 		// log.Println("404 routekey", routeKey(req.Method, endpoint.Version, endpoint.EntityName, endpoint.Action))
 		log.Printf("404 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
-		http.NotFound(w, req)
+		// http.NotFound(w, req)
+		ctxPtr.SendErrorPayload(http.StatusNotFound, NotFoundErrNo, "404 Not Found", "")
 		return
 	}
 
 	// log.Println("req.Method", req.Method)
 	// log.Println("endpoint.PrimaryKey", endpoint.PrimaryKey)
 	// log.Println("endpoint.Extras", endpoint.Extras)
+
+	// 3b Some basic validation
+
 	if req.Method == "POST" && endpoint.PrimaryKey != 0 && len(endpoint.Extras) == 1 {
-		log.Printf("405 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
-		http.Error(w, "405 Method Not Allowed: POST must not have id", http.StatusMethodNotAllowed)
+		log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
+		http.Error(w, BadRequestExtraneousPKeyPrefix, http.StatusBadRequest)
+		ctxPtr.SendErrorPayload(http.StatusBadRequest, BadRequestExtraneousPKeyErrNo, BadRequestExtraneousPKeyPrefix, "")
 		return
 	}
-	if (req.Method == "PATCH" || req.Method == "PUT") && endpoint.PrimaryKey == 0 && len(endpoint.Extras) == 0 {
-		log.Printf("405 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
-		http.Error(w, "405 Method Not Allowed: PATCH & PUT must have id", http.StatusMethodNotAllowed)
+	// Read and update require primary key
+	if (req.Method == "GET" || req.Method == "PATCH" || req.Method == "PUT") && endpoint.PrimaryKey == 0 && len(endpoint.Extras) == 0 {
+		log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
+		ctxPtr.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPKeyErrNo, BadRequestMissingPKeyPrefix, "")
 		return
 	}
 
 	typedHandler := routePtr.Handler
 
-	// 3b. call handler method
-
-	ctxPtr := new(Context) // needs a leakybucket
-	ctxPtr.W = w
-	ctxPtr.R = req
-	ctxPtr.E = endpoint
+	// 3c. call handler method
 
 	typedHandler(ctxPtr)
 

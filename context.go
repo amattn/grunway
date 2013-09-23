@@ -10,25 +10,21 @@ type Context struct {
 	E Endpoint
 }
 
-func (c *Context) RespondWithEntityPayload(entity interface{}) {
-
-}
-
-func (c *Context) WriteEntityPayload(entity interface{}) {
-	writeEntityPayload(c.W, entity)
+func (c *Context) WrapAndSendPayload(payload interface{}) {
+	wrapAndSendPayload(c.W, payload)
 }
 
 // for a slice of Entities
-func (c *Context) WriteEntitiesPayload(entities []interface{}) {
-	writeEntitiesPayload(c.W, entities)
+func (c *Context) WrapAndSendPayloadList(payloadList []interface{}) {
+	wrapAndSendPayloadList(c.W, payloadList)
 }
 
 // Error or alerts
-func (c *Context) WriteErrorPayload(errNum int64, errStr, alert string) {
-	writeErrorPayload(c.W, errNum, errStr, alert)
+func (c *Context) SendErrorPayload(code int, errNo int64, errStr, alert string) {
+	sendErrorPayload(c.W, code, errNo, errStr, alert)
 }
 
-// Ok payload is just a json dict w/ one kv: ErrNum == 0
-func (c *Context) WriteOkPayload() {
-	writeOkPayload(c.W)
+// Ok payload is just a json dict w/ one kv: errNo == 0
+func (c *Context) SendOkPayload() {
+	sendOkPayload(c.W)
 }
