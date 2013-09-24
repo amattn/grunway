@@ -18,10 +18,10 @@ const (
 	BadRequestErrNo                = 4000000000
 	BadRequestSyntaxErrorPrefix    = BadRequestPrefix + ": Syntax Error"
 	BadRequestSyntaxErrorErrNo     = 4000000001
-	BadRequestExtraneousPKeyPrefix = BadRequestPrefix + ": Extraneous Id"
-	BadRequestExtraneousPKeyErrNo  = 4000000002
-	BadRequestMissingPKeyPrefix    = BadRequestPrefix + ": Missing Id"
-	BadRequestMissingPKeyErrNo     = 4000000003
+	BadRequestExtraneousPrimaryKeyPrefix = BadRequestPrefix + ": Extraneous Id"
+	BadRequestExtraneousPrimaryKeyErrNo  = 4000000002
+	BadRequestMissingPrimaryKeyPrefix    = BadRequestPrefix + ": Missing Id"
+	BadRequestMissingPrimaryKeyErrNo     = 4000000003
 )
 
 type Router struct {
@@ -45,31 +45,31 @@ func NewRouter() *Router {
 
 // Configuration of Router
 
-func (router *Router) RegisterEntity(name string, entityController, entityPayload interface{}) {
-	entityControllerType := reflect.TypeOf(entityController)
-	entityControllerValue := reflect.ValueOf(entityController)
+func (router *Router) RegisterEntity(name string, payloadController, entityPayload interface{}) {
+	payloadControllerType := reflect.TypeOf(payloadController)
+	payloadControllerValue := reflect.ValueOf(payloadController)
 	entityPayloadType := reflect.TypeOf(entityPayload)
 
 	if isValid, reason := ValidateEntityName(name); isValid == false {
 		log.Fatalln("Invalid Enitity name:'", name, "'", reason)
 	}
-	if entityController == nil {
+	if payloadController == nil {
 		log.Fatalln("untypedHandlerWrapper currently must not be nil")
 	}
 	if entityPayload == nil {
 		log.Fatalln("untypedHandlerWrapper currently must not be nil")
 	}
 
-	log.Println("Registering EntityController:", entityControllerType, "for payload:", entityPayloadType)
-	router.Controllers[name] = entityController
+	log.Println("Registering payloadController:", payloadControllerType, "for payload:", entityPayloadType)
+	router.Controllers[name] = payloadController
 	router.Payloads[name] = entityPayloadType
 
-	for i := 0; i < entityControllerType.NumMethod(); i++ {
+	for i := 0; i < payloadControllerType.NumMethod(); i++ {
 
-		potentialHandlerMethod := entityControllerType.Method(i)
+		potentialHandlerMethod := payloadControllerType.Method(i)
 		potentialHandlerName := potentialHandlerMethod.Name
-		unknownhandler := entityControllerValue.MethodByName(potentialHandlerName).Interface()
-		router.AddEntityRoute(name, entityControllerType.String(), potentialHandlerName, unknownhandler)
+		unknownhandler := payloadControllerValue.MethodByName(potentialHandlerName).Interface()
+		router.AddEntityRoute(name, payloadControllerType.String(), potentialHandlerName, unknownhandler)
 	}
 }
 
@@ -234,14 +234,15 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if req.Method == "POST" && endpoint.PrimaryKey != 0 && len(endpoint.Extras) == 1 {
 		log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
-		http.Error(w, BadRequestExtraneousPKeyPrefix, http.StatusBadRequest)
-		ctxPtr.SendErrorPayload(http.StatusBadRequest, BadRequestExtraneousPKeyErrNo, BadRequestExtraneousPKeyPrefix, "")
+		// don't use http.Error!  use our sendErrorPayload instead
+		// http.Error(w, BadRequestExtraneousPrimaryKeyPrefix, http.StatusBadRequest)
+		ctxPtr.SendErrorPayload(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, BadRequestExtraneousPrimaryKeyPrefix, "")
 		return
 	}
 	// Read and update require primary key
 	if (req.Method == "GET" || req.Method == "PATCH" || req.Method == "PUT") && endpoint.PrimaryKey == 0 && len(endpoint.Extras) == 0 {
 		log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
-		ctxPtr.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPKeyErrNo, BadRequestMissingPKeyPrefix, "")
+		ctxPtr.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestMissingPrimaryKeyPrefix, "")
 		return
 	}
 

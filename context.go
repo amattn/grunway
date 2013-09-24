@@ -1,6 +1,9 @@
 package grunway
 
 import (
+	"encoding/json"
+	"github.com/amattn/deeperror"
+	"log"
 	"net/http"
 )
 
@@ -27,4 +30,28 @@ func (c *Context) SendErrorPayload(code int, errNo int64, errStr, alert string) 
 // Ok payload is just a json dict w/ one kv: errNo == 0
 func (c *Context) SendOkPayload() {
 	sendOkPayload(c.W)
+}
+
+func (c *Context) DecodeResponseBodyOrSendError(pc PayloadController) interface{} {
+	requestBody := c.R.Body
+	if requestBody == nil {
+		errStr := BadRequestPrefix + ": Expected non-empty body"
+		c.SendErrorPayload(http.StatusBadRequest, 4003399819, errStr, "")
+		return nil
+	}
+	defer requestBody.Close()
+
+	decoder := json.NewDecoder(requestBody)
+	payloadReference := pc.NewPaylodReference()
+	err := decoder.Decode(payloadReference)
+
+	if err != nil {
+		errStr := BadRequestPrefix + ": Cannot parse body"
+		derr := deeperror.New(4005488054, errStr, err)
+		log.Println("derr", derr)
+		c.SendErrorPayload(http.StatusBadRequest, 4005488054, errStr, "")
+		return nil
+	}
+
+	return payloadReference
 }

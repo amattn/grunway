@@ -29,17 +29,17 @@ type EntityPrimitives interface {
 }
 
 type Entity struct {
-	PKey    int64     `json:",omitempty"`
+	PrimaryKey    int64     `json:",omitempty"`
 	Version uint16    `json:",omitempty"`
 	Updated time.Time `json:",omitempty"`
 	Created time.Time `json:",omitempty"`
 }
 
 func (e *Entity) SetPrimaryKey(pkey int64) {
-	e.PKey = pkey
+	e.PrimaryKey = pkey
 }
 func (e *Entity) GetPrimaryKey() int64 {
-	return e.PKey
+	return e.PrimaryKey
 }
 func (e *Entity) GetVersion() uint16 {
 	return e.Version
