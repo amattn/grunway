@@ -1,13 +1,13 @@
 package grunway
 
 const (
-	BUILD_NUMBER   = 1
-	VERSION_STRING = "0.1"
+	internal_BUILD_NUMBER   = 12
+	internal_VERSION_STRING = "0.2"
 )
 
-func Build() int64 {
-	return BUILD_NUMBER
+func BuildNumber() int64 {
+	return internal_BUILD_NUMBER
 }
-func Version() string {
-	return VERSION_STRING
+func VersionString() string {
+	return internal_VERSION_STRING
 }

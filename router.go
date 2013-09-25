@@ -12,12 +12,12 @@ import (
 )
 
 const (
-	NotFoundPrefix                 = "404 Not Found"
-	NotFoundErrNo                  = 4040000404
-	BadRequestPrefix               = "400 Bad Request"
-	BadRequestErrNo                = 4000000000
-	BadRequestSyntaxErrorPrefix    = BadRequestPrefix + ": Syntax Error"
-	BadRequestSyntaxErrorErrNo     = 4000000001
+	NotFoundPrefix                       = "404 Not Found"
+	NotFoundErrNo                        = 4040000404
+	BadRequestPrefix                     = "400 Bad Request"
+	BadRequestErrNo                      = 4000000000
+	BadRequestSyntaxErrorPrefix          = BadRequestPrefix + ": Syntax Error"
+	BadRequestSyntaxErrorErrNo           = 4000000001
 	BadRequestExtraneousPrimaryKeyPrefix = BadRequestPrefix + ": Extraneous Id"
 	BadRequestExtraneousPrimaryKeyErrNo  = 4000000002
 	BadRequestMissingPrimaryKeyPrefix    = BadRequestPrefix + ": Missing Id"
@@ -222,7 +222,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// log.Println("404 routekey", routeKey(req.Method, endpoint.Version, endpoint.EntityName, endpoint.Action))
 		log.Printf("404 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
 		// http.NotFound(w, req)
-		ctxPtr.SendErrorPayload(http.StatusNotFound, NotFoundErrNo, "404 Not Found", "")
+		ctxPtr.SendErrorPayload(http.StatusNotFound, NotFoundErrNo, "404 Not Found")
 		return
 	}
 
@@ -236,13 +236,13 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
 		// don't use http.Error!  use our sendErrorPayload instead
 		// http.Error(w, BadRequestExtraneousPrimaryKeyPrefix, http.StatusBadRequest)
-		ctxPtr.SendErrorPayload(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, BadRequestExtraneousPrimaryKeyPrefix, "")
+		ctxPtr.SendErrorPayload(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, BadRequestExtraneousPrimaryKeyPrefix)
 		return
 	}
 	// Read and update require primary key
 	if (req.Method == "GET" || req.Method == "PATCH" || req.Method == "PUT") && endpoint.PrimaryKey == 0 && len(endpoint.Extras) == 0 {
 		log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
-		ctxPtr.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestMissingPrimaryKeyPrefix, "")
+		ctxPtr.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestMissingPrimaryKeyPrefix)
 		return
 	}
 
