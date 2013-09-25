@@ -19,11 +19,11 @@ type BookController struct {
 }
 
 type AuthorPayload struct {
-	Entity
+	PKey int64
 	Name string
 }
 type BookPayload struct {
-	Entity
+	PKey     int64
 	Name     string
 	AuthorId uint64
 }
@@ -35,7 +35,7 @@ func (self *AuthorController) GetHandlerV1(ctx *Context) {
 func (self *BookController) GetHandlerV1(ctx *Context) {
 
 	var book BookPayload
-	book.SetPrimaryKey(1)
+	book.PKey = 1
 	book.Name = "The Greatest Works of All Time"
 	book.AuthorId = 1
 
@@ -208,8 +208,8 @@ func TestPayload(t *testing.T) {
 			t.Fatalf("918188686 failure to Unmarshal entity %+v", string(jsonBytes))
 		}
 
-		if bookPayload.GetPrimaryKey() != 1 {
-			t.Errorf("918188687 i:%d Expected pk == 1, got %d\nentity:%+v", i, bookPayload.GetPrimaryKey(), bookPayload)
+		if bookPayload.PKey != 1 {
+			t.Errorf("918188687 i:%d Expected pk == 1, got %d\nentity:%+v", i, bookPayload.PKey, bookPayload)
 		}
 	}
 }
