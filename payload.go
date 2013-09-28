@@ -10,12 +10,17 @@ import (
 	"github.com/amattn/deeperror"
 )
 
-// import (
-// 	"net/http"
-// )
+type PayloadController interface {
+	NewPaylodReference() interface{}
+}
+
+type TypedPayload interface {
+	PayloadType() string
+}
 
 // This will typically be serialized into a JSON formatted string
 type PayloadWrapper struct {
+	PayloadType string        `json:",omitempty"` // optional, typically used for sanity checking
 	PayloadList []interface{} `json:",omitempty"` // ALWAYS an array of objects. Typically, these are arrays of objects designed to be deserialized into entity structs (eg []BookPayload, []AuthorPayload)
 	ErrNo       int64         // will be 0 on successful responses, non-zero otherwise
 	ErrStr      string        `json:",omitempty"` // end-user appropriate error message
@@ -35,6 +40,23 @@ func wrapAndSendPayload(w io.Writer, payload interface{}) {
 // for a slice of Entities
 func wrapAndSendPayloadList(w io.Writer, payloadList []interface{}) {
 	payloadWrapper := NewPayloadWrapper()
+
+	var payloadType string
+
+	for _, payload := range payloadList {
+		typedPayload, isTP := payload.(TypedPayload)
+		if isTP {
+			if payloadType == "" {
+				payloadType = typedPayload.PayloadType()
+			}
+			if payloadType != typedPayload.PayloadType() {
+				payloadType = ""
+				break
+			}
+		}
+	}
+
+	payloadWrapper.PayloadType = payloadType
 	payloadWrapper.PayloadList = payloadList
 	sendPayloadWrapper(w, http.StatusOK, payloadWrapper)
 }

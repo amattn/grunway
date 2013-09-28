@@ -22,10 +22,19 @@ type AuthorPayload struct {
 	PKey int64
 	Name string
 }
+
+func (payload AuthorPayload) PayloadType() string {
+	return "AuthorPayload"
+}
+
 type BookPayload struct {
 	PKey     int64
 	Name     string
 	AuthorId uint64
+}
+
+func (payload BookPayload) PayloadType() string {
+	return "BookPayload"
 }
 
 func (self *AuthorController) GetHandlerV1(ctx *Context) {
@@ -183,7 +192,11 @@ func TestPayload(t *testing.T) {
 
 	// decode the json,
 	var pw PayloadWrapper
-	json.Unmarshal(bodyBytes, &pw)
+	err = json.Unmarshal(bodyBytes, &pw)
+
+	if err != nil {
+		t.Fatal("9063845927 JSON unmarshal failure", err, "\n", bodyString)
+	}
 
 	//check errNo == 0
 	if pw.ErrNo != 0 {
@@ -195,8 +208,11 @@ func TestPayload(t *testing.T) {
 		t.Errorf("918188684 expected 1 entity, got %v\npayload:%+v", pw.ErrStr, pw)
 	}
 
+	t.Log("pw", pw)
+	t.Log("pw.PayloadList", pw.PayloadList)
 	for i, untypedEntity := range pw.PayloadList {
 
+		t.Log("untypedEntity", untypedEntity)
 		jsonBytes, err := json.Marshal(untypedEntity)
 		if err != nil {
 			t.Fatalf("918188685 failure to marshal entity %+v", untypedEntity)
@@ -209,7 +225,7 @@ func TestPayload(t *testing.T) {
 		}
 
 		if bookPayload.PKey != 1 {
-			t.Errorf("918188687 i:%d Expected pk == 1, got %d\nentity:%+v", i, bookPayload.PKey, bookPayload)
+			t.Errorf("918188687 i:%d Expected pk == 1, got %d\nentity:%+v\nbodyString:%v", i, bookPayload.PKey, pw, bodyString)
 		}
 	}
 }
