@@ -37,7 +37,7 @@ func (c *Context) SendOkPayload() {
 	sendOkPayload(c.W)
 }
 
-func (c *Context) DecodeResponseBodyOrSendError(pc PayloadController) interface{} {
+func (c *Context) DecodeResponseBodyOrSendError(pc PayloadController, payloadReference interface{}) interface{} {
 	requestBody := c.R.Body
 	if requestBody == nil {
 		errStr := BadRequestPrefix + ": Expected non-empty body"
@@ -47,7 +47,6 @@ func (c *Context) DecodeResponseBodyOrSendError(pc PayloadController) interface{
 	defer requestBody.Close()
 
 	decoder := json.NewDecoder(requestBody)
-	payloadReference := pc.NewPaylodReference()
 	err := decoder.Decode(payloadReference)
 
 	if err != nil {
