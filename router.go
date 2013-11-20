@@ -22,6 +22,8 @@ const (
 	BadRequestExtraneousPrimaryKeyErrNo  = 4000000002
 	BadRequestMissingPrimaryKeyPrefix    = BadRequestPrefix + ": Missing Id"
 	BadRequestMissingPrimaryKeyErrNo     = 4000000003
+
+	InternalServerErrorPrefix = "500 Internal Server Error"
 )
 
 type Router struct {
