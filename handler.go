@@ -5,14 +5,14 @@ import (
 	"net/http"
 )
 
-type CreatePayload interface {
-	PayloadStore(controller PayloadController, c *Context) (didSucceed bool, errNo int64, responsePayload interface{})
+type CreatePerformer interface {
+	PerformCreate(c *Context, createRequestPayload interface{}) (didSucceed bool, errNo int64, responsePayload interface{})
 }
-type CreatePayloadValidator interface {
-	PayloadIsValid(controller PayloadController, c *Context) (isValid bool, errNo int64)
+type CreateValidator interface {
+	CreatePayloadIsValid(c *Context, createRequestPayload interface{}) (isValid bool, errNo int64)
 }
 
-func StandardCreateHandler(controller PayloadController, c *Context, createPayload CreatePayload) {
+func StandardCreateHandler(controller CreatePerformer, c *Context, createRequestPayload interface{}) {
 	// Get the request
 	requestBody := c.R.Body
 	if requestBody == nil {
@@ -23,7 +23,7 @@ func StandardCreateHandler(controller PayloadController, c *Context, createPaylo
 
 	// parse the json
 	decoder := json.NewDecoder(requestBody)
-	err := decoder.Decode(createPayload)
+	err := decoder.Decode(createRequestPayload)
 
 	if err != nil {
 		errStr := BadRequestPrefix + ": Cannot parse body"
@@ -32,9 +32,9 @@ func StandardCreateHandler(controller PayloadController, c *Context, createPaylo
 	}
 
 	// validate json
-	validator, isValidator := createPayload.(CreatePayloadValidator)
+	validator, isValidator := controller.(CreateValidator)
 	if isValidator {
-		isValid, errNo := validator.PayloadIsValid(controller, c)
+		isValid, errNo := validator.CreatePayloadIsValid(c, createRequestPayload)
 		if isValid == false {
 			c.SendErrorPayload(http.StatusBadRequest, errNo, BadRequestPrefix)
 			return
@@ -42,7 +42,7 @@ func StandardCreateHandler(controller PayloadController, c *Context, createPaylo
 	}
 
 	// add entity to the model
-	didSucceed, errNo, responsePayload := createPayload.PayloadStore(controller, c)
+	didSucceed, errNo, responsePayload := controller.PerformCreate(c, createRequestPayload)
 	if didSucceed == false {
 		c.SendErrorPayload(http.StatusInternalServerError, errNo, InternalServerErrorPrefix)
 		return
@@ -56,14 +56,23 @@ func StandardCreateHandler(controller PayloadController, c *Context, createPaylo
 	}
 }
 
-type UpdatePayload interface {
-	PayloadStore(controller PayloadController, c *Context) (didSucceed bool, errNo int64, responsePayload interface{})
+// #     #
+// #     # #####  #####    ##   ##### ######
+// #     # #    # #    #  #  #    #   #
+// #     # #    # #    # #    #   #   #####
+// #     # #####  #    # ######   #   #
+// #     # #      #    # #    #   #   #
+//  #####  #      #####  #    #   #   ######
+//
+
+type UpdatePerformer interface {
+	PerformUpdate(c *Context, updateRequestPayload interface{}) (didSucceed bool, errNo int64, responsePayload interface{})
 }
-type UpdatePayloadValidator interface {
-	PayloadIsValid(controller PayloadController, c *Context) (isValid bool, errNo int64)
+type UpdateValidator interface {
+	UpdatePayloadIsValid(c *Context, updateRequestPayload interface{}) (isValid bool, errNo int64)
 }
 
-func StandardUpdateHandler(controller PayloadController, c *Context, updatePayload UpdatePayload) {
+func StandardUpdateHandler(controller UpdatePerformer, c *Context, updateRequestPayload interface{}) {
 	// Get the request
 	requestBody := c.R.Body
 	if requestBody == nil {
@@ -74,7 +83,7 @@ func StandardUpdateHandler(controller PayloadController, c *Context, updatePaylo
 
 	// parse the json
 	decoder := json.NewDecoder(requestBody)
-	err := decoder.Decode(updatePayload)
+	err := decoder.Decode(updateRequestPayload)
 
 	if err != nil {
 		errStr := BadRequestPrefix + ": Cannot parse body"
@@ -83,9 +92,9 @@ func StandardUpdateHandler(controller PayloadController, c *Context, updatePaylo
 	}
 
 	// validate json
-	validator, isValidator := updatePayload.(UpdatePayloadValidator)
+	validator, isValidator := controller.(UpdateValidator)
 	if isValidator {
-		isValid, errNo := validator.PayloadIsValid(controller, c)
+		isValid, errNo := validator.UpdatePayloadIsValid(c, updateRequestPayload)
 		if isValid == false {
 			c.SendErrorPayload(http.StatusBadRequest, errNo, BadRequestPrefix)
 			return
@@ -93,7 +102,7 @@ func StandardUpdateHandler(controller PayloadController, c *Context, updatePaylo
 	}
 
 	// add entity to the model
-	didSucceed, errNo, responsePayload := updatePayload.PayloadStore(controller, c)
+	didSucceed, errNo, responsePayload := controller.PerformUpdate(c, updateRequestPayload)
 	if didSucceed == false {
 		c.SendErrorPayload(http.StatusInternalServerError, errNo, InternalServerErrorPrefix)
 		return
@@ -107,23 +116,32 @@ func StandardUpdateHandler(controller PayloadController, c *Context, updatePaylo
 	}
 }
 
-type DeletePayload interface {
-	PerformDelete(controller PayloadController, c *Context) (didSucceed bool, errNo int64)
+// ######
+// #     # ###### #      ###### ##### ######
+// #     # #      #      #        #   #
+// #     # #####  #      #####    #   #####
+// #     # #      #      #        #   #
+// #     # #      #      #        #   #
+// ######  ###### ###### ######   #   ######
+//
+
+type DeletePerformer interface {
+	PerformDelete(c *Context) (didSucceed bool, errNo int64)
 }
-type DeletePayloadValidator interface {
-	DeleteRequestIsValid(controller PayloadController, c *Context) (isValid bool, errNo int64)
+type DeleteValidator interface {
+	DeleteRequestIsValid(c *Context) (isValid bool, errNo int64)
 }
 
-func StandardDeleteHandler(controller PayloadController, c *Context, deletePayload DeletePayload) {
+func StandardDeleteHandler(c *Context, controller DeletePerformer) {
 	if c.E.PrimaryKey <= 0 {
 		c.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestPrefix)
 		return
 	}
 
 	// validate json
-	validator, isValidator := deletePayload.(DeletePayloadValidator)
+	validator, isValidator := controller.(DeleteValidator)
 	if isValidator {
-		isValid, errNo := validator.DeleteRequestIsValid(controller, c)
+		isValid, errNo := validator.DeleteRequestIsValid(c)
 		if isValid == false {
 			c.SendErrorPayload(http.StatusBadRequest, errNo, BadRequestPrefix)
 			return
@@ -131,7 +149,7 @@ func StandardDeleteHandler(controller PayloadController, c *Context, deletePaylo
 	}
 
 	// delete entity
-	didSucceed, errNo := deletePayload.PerformDelete(controller, c)
+	didSucceed, errNo := controller.PerformDelete(c)
 	if didSucceed == false {
 		c.SendErrorPayload(http.StatusInternalServerError, errNo, InternalServerErrorPrefix)
 		return
