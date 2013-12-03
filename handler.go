@@ -6,7 +6,7 @@ import (
 )
 
 type CreatePayload interface {
-	PayloadStore(controller PayloadController, c *Context) (didSucceed bool, errNo int64)
+	PayloadStore(controller PayloadController, c *Context) (didSucceed bool, errNo int64, responsePayload interface{})
 }
 type CreatePayloadValidator interface {
 	PayloadIsValid(controller PayloadController, c *Context) (isValid bool, errNo int64)
@@ -42,9 +42,16 @@ func StandardCreateHandler(controller PayloadController, c *Context, createPaylo
 	}
 
 	// add entity to the model
-	didSucceed, errNo := createPayload.PayloadStore(controller, c)
+	didSucceed, errNo, responsePayload := createPayload.PayloadStore(controller, c)
 	if didSucceed == false {
 		c.SendErrorPayload(http.StatusInternalServerError, errNo, InternalServerErrorPrefix)
 		return
+	}
+
+	// response
+	if responsePayload != nil {
+		c.WrapAndSendPayload(responsePayload)
+	} else {
+		c.SendOkPayload()
 	}
 }
