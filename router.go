@@ -47,10 +47,10 @@ func NewRouter() *Router {
 
 // Configuration of Router
 
-func (router *Router) RegisterEntity(name string, payloadController, entityPayload interface{}) {
+func (router *Router) RegisterEntity(name string, payloadController, responsePayloadPrototype interface{}) {
 	payloadControllerType := reflect.TypeOf(payloadController)
 	payloadControllerValue := reflect.ValueOf(payloadController)
-	entityPayloadType := reflect.TypeOf(entityPayload)
+	entityPayloadType := reflect.TypeOf(responsePayloadPrototype)
 
 	if isValid, reason := ValidateEntityName(name); isValid == false {
 		log.Fatalln("Invalid Enitity name:'", name, "'", reason)
@@ -58,7 +58,7 @@ func (router *Router) RegisterEntity(name string, payloadController, entityPaylo
 	if payloadController == nil {
 		log.Fatalln("untypedHandlerWrapper currently must not be nil")
 	}
-	if entityPayload == nil {
+	if responsePayloadPrototype == nil {
 		log.Fatalln("untypedHandlerWrapper currently must not be nil")
 	}
 
