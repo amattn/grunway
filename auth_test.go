@@ -16,7 +16,8 @@ import (
 func newTestRouter(as AccountStore) *Router {
 	router := NewRouter()
 	router.BasePath = "/api/"
-	router.RegisterEntity("account", &AuthController{as})
+	router.RegisterEntity("account", &AccountController{as})
+	router.RegisterEntity("login", &AuthController{as})
 	return router
 }
 
@@ -61,8 +62,6 @@ func TestAPIRoutes(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	// SKIP ALL THIS STUFF FOR NOW.  OUR MODEL DOESN'T EVEN WORK YET.
-
 	createPayload := `{"Name":"testApp","Email":"a@b.c","Password":"12345!@#$%"}`
 	createBadEmailPayload := `{"Name":"testApp","Email":"intentionallyBadPass"}`
 	createBadPassword1Payload := `{"Name":"testApp","Email":"a@b.c"}`
@@ -71,48 +70,39 @@ func TestAPIRoutes(t *testing.T) {
 	// updatePayload := `{"PKey":1,"APIKey":"0","Name":"newName","Description":"newDesc"}`
 	bogusPayload := `{"bogus":"bogus"}`
 
+	loginPayload := `{"Email":"a@b.c","Password":"12345!@#$%"}`
+	loginBadEmailPayload := `{"Email":"a","Password":"12345!@#$%"}`
+	loginBadPassPayload := `{"Email":"a@b.c","Password":"1"}`
+
 	var createdPK int64
 	// validate creation
 	checkCreateResponseBody := func(t *testing.T, i int, etp EndpointTestPath, resp *http.Response, req *http.Request, pw *PayloadWrapper, payloadListBytes []byte) {
-		appPayloads := make([]*AccountResponsePayload, 0, len(pw.PayloadList))
-		err := json.Unmarshal(payloadListBytes, &appPayloads)
+		payloads := make([]*AccountResponsePayload, 0, len(pw.PayloadList))
+		err := json.Unmarshal(payloadListBytes, &payloads)
 		if err != nil {
 			t.Errorf("9409264666 Cannot Unmarshal payloadListBytes:\n%s\n%v", string(payloadListBytes), err)
 			return
 		}
 
-		for i, payloadPtr := range appPayloads {
+		if len(payloads) != 1 {
+			t.Fatalf("Could not create account")
+		}
+
+		for i, payloadPtr := range payloads {
 			createdPK = payloadPtr.Id
 			if payloadPtr.Id <= 0 {
 				t.Errorf("9180113630 %d Expected pkey > 0, got %d %+v", i, payloadPtr.Id, payloadPtr)
 			}
+
+			if payloadPtr.Email != "a@b.c" {
+				t.Errorf("9953190685 expected a@b.c, got %s", payloadPtr.Email)
+			}
+			if payloadPtr.Name != "testApp" {
+				t.Errorf("9953190686 expected testApp, got %s", payloadPtr.Name)
+			}
 		}
 	}
 
-	// validate update
-	// checkUpdateResponseBody := func(t *testing.T, i int, etp EndpointTestPath, resp *http.Response, req *http.Request, pw *PayloadWrapper, payloadListBytes []byte) {
-	// 	appPayloads := make([]*AccountResponsePayload, 0, len(pw.PayloadList))
-	// 	err := json.Unmarshal(payloadListBytes, &appPayloads)
-	// 	if err != nil {
-	// 		t.Errorf("9409264666 Cannot Unmarshal payloadListBytes:\n%s\n%v", string(payloadListBytes), err)
-	// 		return
-	// 	}
-
-	// 	if len(appPayloads) != 1 {
-	// 		t.Errorf("9273680423 expected 1 payload, got %v", appPayloads)
-	// 		return
-	// 	}
-	// 	payload := appPayloads[0]
-	// 	if payload.Name != "newName" {
-	// 		t.Errorf("9273680424 updated name expected %s, got %s", payload.Name, "newName")
-	// 	}
-	// 	if payload.Email != "a@b.c" {
-	// 		t.Errorf("9273680425 updated name expected %s, got %s", payload.Email, "a@b.c")
-	// 	}
-	// 	if payload.Id <= 0 {
-	// 		t.Errorf("9273680425 payload.Id expected len > 0")
-	// 	}
-	// }
 	// first just make one...  just to get a pk
 	createETP := EndpointTestPath{"POST", "/api/v1/account/", createPayload, http.StatusOK, 0, 1, checkCreateResponseBody}
 	runETP(t, -1, createETP, ts)
@@ -133,6 +123,11 @@ func TestAPIRoutes(t *testing.T) {
 		EndpointTestPath{"POST", "/api/v1/account/1", bogusPayload, http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, 0, nil},
 		EndpointTestPath{"POST", "/api/v2234/account/", "", http.StatusNotFound, NotFoundErrNo, 0, nil},
 		EndpointTestPath{"POST", "/api/v1/bogus/", "", http.StatusNotFound, NotFoundErrNo, 0, nil},
+
+		// LOGIN
+		EndpointTestPath{"POST", "/api/v1/login", loginPayload, http.StatusOK, 0, 1, nil},
+		EndpointTestPath{"POST", "/api/v1/login", loginBadEmailPayload, http.StatusForbidden, 5296511999, 0, nil},
+		EndpointTestPath{"POST", "/api/v1/login", loginBadPassPayload, http.StatusForbidden, 5296511999, 0, nil},
 
 		// READ
 		// EndpointTestPath{"GET", "/api/v1/account/" + pk, "", http.StatusOK, 0, 1, nil},
@@ -172,7 +167,6 @@ func runETP(t *testing.T, i int, etp EndpointTestPath, ts *httptest.Server) {
 	if etp.ValidationFunc != nil {
 		etp.ValidationFunc(t, i, etp, resp, req, pw, payloadListBytes)
 	}
-
 }
 
 func defaultResponseBodyValidator(t *testing.T, i int, etp EndpointTestPath, resp *http.Response, req *http.Request) (pw *PayloadWrapper, payloadListBytes []byte) {

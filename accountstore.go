@@ -12,6 +12,11 @@ import (
 	"github.com/amattn/deeperror"
 )
 
+const (
+	MAX_EMAIL_LENGTH    = 256
+	MAX_PASSWORD_LENGTH = 1024
+)
+
 type AccountStore interface {
 
 	// Common startup, shutdown, utility methods
@@ -20,7 +25,7 @@ type AccountStore interface {
 
 	// CREATE
 	// returns created account's accountid
-	CreateAccount(email, password string) (*Account, error)
+	CreateAccount(name, email, password string) (*Account, error)
 
 	// DELETE
 	// returns true when id is valid account is successfully removed.  if no account with id, returns false
@@ -82,7 +87,7 @@ func generateSecretKey() (string, error) {
 
 // Yes this could be better... good enough for now.
 func SimpleEmailValidation(email string) bool {
-	if len(email) < 5 || len(email) > 254 {
+	if len(email) < 5 || len(email) > MAX_EMAIL_LENGTH {
 		return false
 	}
 	if strings.Contains(email, "@") == false {
@@ -108,7 +113,7 @@ func SimpleEmailValidation(email string) bool {
 }
 
 func SimplePasswordValidation(pw string) bool {
-	if len(pw) < 8 || len(pw) > 1024 {
+	if len(pw) < 8 || len(pw) > MAX_PASSWORD_LENGTH {
 		return false
 	}
 
