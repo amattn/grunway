@@ -78,8 +78,8 @@ func (self *BookController) GetHandlerV1Popular(ctx *Context) {
 func makeLibrary(t *testing.T) *Router {
 	routerPtr := NewRouter()
 	routerPtr.BasePath = "/api/"
-	routerPtr.RegisterEntity("author", &AuthorController{}, &AuthorPayload{})
-	routerPtr.RegisterEntity("book", &BookController{}, &BookPayload{})
+	routerPtr.RegisterEntity("author", &AuthorController{})
+	routerPtr.RegisterEntity("book", &BookController{})
 
 	// routerPtr.LogRoutes()
 	t.Log("All Routes:\n", routerPtr.AllRoutesSummary())
@@ -91,7 +91,7 @@ func TestRouterSetup(t *testing.T) {
 	makeLibrary(t)
 }
 
-func TestAPIRoutes(t *testing.T) {
+func TestRouter(t *testing.T) {
 	router := makeLibrary(t)
 	ts := httptest.NewServer(router)
 	defer ts.Close()

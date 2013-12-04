@@ -3,7 +3,6 @@ package grunway
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -16,10 +15,8 @@ import (
 type AccountStore interface {
 
 	// Common startup, shutdown, utility methods
-	Startup(host string, port uint16) error
+	Startup(attribs string) error
 	Shutdown() error
-	DBName() string
-	StoreName() string
 
 	// CREATE
 	// returns created account's accountid
@@ -46,14 +43,10 @@ type AccountStore interface {
 
 type Account struct {
 	// System fields
-	AccountId int64  `meddler:"accountid,pk"`
-	Passhash  []byte `meddler:"passhash"`
+	Pkey     int64  `meddler:"pkey,pk"`
+	Passhash []byte `meddler:"passhash"`
 	// Salt      []byte `meddler:"-"` // may not be necessary if using certain algos (bcrypt)
 	SecretKey string `meddler:"secretkey"`
-
-	// host info
-	LinkStoreHost string `meddler:"linkstorehost"`
-	LinkStorePort uint16 `meddler:"linkstoreport"`
 
 	// Times
 	Created   time.Time `meddler:"tsadd,utctimez"`
@@ -62,10 +55,7 @@ type Account struct {
 
 	// User fields
 	Email string `meddler:"email"`
-}
-
-func (a *Account) CurrentHostPort() string {
-	return fmt.Sprintf("%s:%d", a.LinkStoreHost, a.LinkStorePort)
+	Name  string `meddler:"name"`
 }
 
 ///////////////////////////////////////////////////////////////////////////////

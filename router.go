@@ -29,8 +29,7 @@ const (
 type Router struct {
 	BasePath string
 
-	Controllers map[string]interface{}  // key is entity name
-	Payloads    map[string]reflect.Type // key is entity name
+	Controllers map[string]interface{} // key is entity name
 
 	RouteMap map[string]*Route
 }
@@ -40,17 +39,15 @@ func NewRouter() *Router {
 	router := new(Router)
 
 	router.Controllers = make(map[string]interface{})
-	router.Payloads = make(map[string]reflect.Type)
 	router.RouteMap = make(map[string]*Route)
 	return router
 }
 
 // Configuration of Router
 
-func (router *Router) RegisterEntity(name string, payloadController, responsePayloadPrototype interface{}) {
+func (router *Router) RegisterEntity(name string, payloadController interface{}) {
 	payloadControllerType := reflect.TypeOf(payloadController)
 	payloadControllerValue := reflect.ValueOf(payloadController)
-	entityPayloadType := reflect.TypeOf(responsePayloadPrototype)
 
 	if isValid, reason := ValidateEntityName(name); isValid == false {
 		log.Fatalln("Invalid Enitity name:'", name, "'", reason)
@@ -58,13 +55,8 @@ func (router *Router) RegisterEntity(name string, payloadController, responsePay
 	if payloadController == nil {
 		log.Fatalln("untypedHandlerWrapper currently must not be nil")
 	}
-	if responsePayloadPrototype == nil {
-		log.Fatalln("untypedHandlerWrapper currently must not be nil")
-	}
 
-	log.Println("Registering payloadController:", payloadControllerType, "for payload:", entityPayloadType)
 	router.Controllers[name] = payloadController
-	router.Payloads[name] = entityPayloadType
 
 	for i := 0; i < payloadControllerType.NumMethod(); i++ {
 

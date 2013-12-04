@@ -27,7 +27,7 @@ func StandardCreateHandler(controller CreatePerformer, c *Context, createRequest
 
 	if err != nil {
 		errStr := BadRequestPrefix + ": Cannot parse body"
-		c.SendErrorPayload(http.StatusBadRequest, 199946555, errStr)
+		c.SendErrorPayload(http.StatusBadRequest, 1540227685, errStr)
 		return
 	}
 
@@ -87,7 +87,7 @@ func StandardUpdateHandler(controller UpdatePerformer, c *Context, updateRequest
 
 	if err != nil {
 		errStr := BadRequestPrefix + ": Cannot parse body"
-		c.SendErrorPayload(http.StatusBadRequest, 199946555, errStr)
+		c.SendErrorPayload(http.StatusBadRequest, 1858602328, errStr)
 		return
 	}
 
