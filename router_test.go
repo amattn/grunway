@@ -18,6 +18,10 @@ type AuthorController struct {
 type BookController struct {
 }
 
+func (ctrlr *BookController) GetSecretKey(publicKey string) (string, int) {
+	return "abc", 0
+}
+
 type AuthorPayload struct {
 	PKey int64
 	Name string
@@ -74,6 +78,9 @@ func (self *BookController) GetHandlerV1All(ctx *Context) {
 func (self *BookController) GetHandlerV1Popular(ctx *Context) {
 
 }
+func (self *BookController) AuthGetHandlerV1Login(ctx *Context) {
+
+}
 
 func makeLibrary(t *testing.T) *Router {
 	routerPtr := NewRouter()
@@ -98,15 +105,16 @@ func TestRouter(t *testing.T) {
 
 	getURLAndStatusCodes := map[string]int{
 		// CRUD
-		"/api/v1/book/1":   http.StatusOK,
-		"/api/v2/book/1":   http.StatusOK,
-		"/api/v3/book/1":   http.StatusOK,
-		"/api/v4/book/1":   http.StatusNotFound,
-		"/api/v18/book/1":  http.StatusOK,
-		"/api/v1/book/":    http.StatusBadRequest,
-		"/api/v1/book":     http.StatusBadRequest,
-		"/api/v1/author/1": http.StatusOK,
-		"/api/v1/bogus/1":  http.StatusNotFound,
+		"/api/v1/book/1":       http.StatusOK,
+		"/api/v2/book/1":       http.StatusOK,
+		"/api/v3/book/1":       http.StatusOK,
+		"/api/v4/book/1":       http.StatusNotFound,
+		"/api/v18/book/1":      http.StatusOK,
+		"/api/v1/book/":        http.StatusBadRequest,
+		"/api/v1/book":         http.StatusBadRequest,
+		"/api/v1/author/1":     http.StatusOK,
+		"/api/v1/bogus/1":      http.StatusNotFound,
+		"/api/v1/book/1/login": http.StatusForbidden,
 
 		// Custom
 		"/api/v1/book/Popular": http.StatusOK,

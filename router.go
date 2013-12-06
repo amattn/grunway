@@ -26,26 +26,41 @@ const (
 	InternalServerErrorPrefix = "500 Internal Server Error"
 )
 
+type PayloadController interface {
+}
+type AuthenticatingPayloadController interface {
+	PayloadController
+	GetSecretKey(publicKey string) (string, int)
+}
+
 type Router struct {
 	BasePath string
 
-	Controllers map[string]interface{} // key is entity name
-
-	RouteMap map[string]*Route
+	Controllers map[string]PayloadController // key is entity name
+	RouteMap    map[string]*Route            // key is entity name
 }
 
 func NewRouter() *Router {
 
 	router := new(Router)
 
-	router.Controllers = make(map[string]interface{})
+	router.Controllers = make(map[string]PayloadController)
 	router.RouteMap = make(map[string]*Route)
 	return router
 }
 
+//  #####
+// #     #  ####  #    # ###### #  ####
+// #       #    # ##   # #      # #    #
+// #       #    # # #  # #####  # #
+// #       #    # #  # # #      # #  ###
+// #     # #    # #   ## #      # #    #
+//  #####   ####  #    # #      #  ####
+//
+
 // Configuration of Router
 
-func (router *Router) RegisterEntity(name string, payloadController interface{}) {
+func (router *Router) RegisterEntity(name string, payloadController PayloadController) {
 	payloadControllerType := reflect.TypeOf(payloadController)
 	payloadControllerValue := reflect.ValueOf(payloadController)
 
@@ -58,16 +73,18 @@ func (router *Router) RegisterEntity(name string, payloadController interface{})
 
 	router.Controllers[name] = payloadController
 
+	authenticator, _ := payloadController.(AuthenticatingPayloadController)
+
 	for i := 0; i < payloadControllerType.NumMethod(); i++ {
 
 		potentialHandlerMethod := payloadControllerType.Method(i)
 		potentialHandlerName := potentialHandlerMethod.Name
 		unknownhandler := payloadControllerValue.MethodByName(potentialHandlerName).Interface()
-		router.AddEntityRoute(name, payloadControllerType.String(), potentialHandlerName, unknownhandler)
+		router.AddEntityRoute(name, payloadControllerType.String(), potentialHandlerName, unknownhandler, authenticator)
 	}
 }
 
-func (router *Router) AddEntityRoute(entityName, controllerName, handlerName string, unknownhandler interface{}) {
+func (router *Router) AddEntityRoute(entityName, controllerName, handlerName string, unknownhandler interface{}, authenticator AuthenticatingPayloadController) {
 
 	// simple first:
 	if strings.Contains(handlerName, MAGIC_HANDLER_KEYWORD) == false {
@@ -91,26 +108,39 @@ func (router *Router) AddEntityRoute(entityName, controllerName, handlerName str
 	routePtr.HandlerName = handlerName
 	routePtr.ControllerName = controllerName
 
+	// Step 1 Check for Auth prrefix
+	deauthedHandlerName := handlerName
+	if strings.HasPrefix(handlerName, MAGIC_AUTH_REQUIRED_PREFIX) {
+		deauthedHandlerName = handlerName[len(MAGIC_AUTH_REQUIRED_PREFIX):]
+		routePtr.RequiresAuth = true
+		if authenticator == nil {
+			log.Fatalf("1323798307 Auth required handler defined (%s), but controller (%s) does not implement AuthenticatingPayloadController", handlerName, controllerName)
+			return
+		}
+		routePtr.Authenticator = authenticator
+	}
+
+	// step 2 Find method
 	var versionActionHandlerName string
 	switch {
-	case strings.HasPrefix(handlerName, MAGIC_GET_HANDLER_PREFIX):
+	case strings.HasPrefix(deauthedHandlerName, MAGIC_GET_HANDLER_PREFIX):
 		routePtr.Method = "GET"
-		versionActionHandlerName = handlerName[len(MAGIC_GET_HANDLER_PREFIX):]
-	case strings.HasPrefix(handlerName, MAGIC_POST_HANDLER_PREFIX):
+		versionActionHandlerName = deauthedHandlerName[len(MAGIC_GET_HANDLER_PREFIX):]
+	case strings.HasPrefix(deauthedHandlerName, MAGIC_POST_HANDLER_PREFIX):
 		routePtr.Method = "POST"
-		versionActionHandlerName = handlerName[len(MAGIC_POST_HANDLER_PREFIX):]
-	case strings.HasPrefix(handlerName, MAGIC_PUT_HANDLER_PREFIX):
+		versionActionHandlerName = deauthedHandlerName[len(MAGIC_POST_HANDLER_PREFIX):]
+	case strings.HasPrefix(deauthedHandlerName, MAGIC_PUT_HANDLER_PREFIX):
 		routePtr.Method = "PUT"
-		versionActionHandlerName = handlerName[len(MAGIC_PUT_HANDLER_PREFIX):]
-	case strings.HasPrefix(handlerName, MAGIC_DELETE_HANDLER_PREFIX):
+		versionActionHandlerName = deauthedHandlerName[len(MAGIC_PUT_HANDLER_PREFIX):]
+	case strings.HasPrefix(deauthedHandlerName, MAGIC_DELETE_HANDLER_PREFIX):
 		routePtr.Method = "DELETE"
-		versionActionHandlerName = handlerName[len(MAGIC_DELETE_HANDLER_PREFIX):]
-	case strings.HasPrefix(handlerName, MAGIC_PATCH_HANDLER_PREFIX):
+		versionActionHandlerName = deauthedHandlerName[len(MAGIC_DELETE_HANDLER_PREFIX):]
+	case strings.HasPrefix(deauthedHandlerName, MAGIC_PATCH_HANDLER_PREFIX):
 		routePtr.Method = "PATCH"
-		versionActionHandlerName = handlerName[len(MAGIC_PATCH_HANDLER_PREFIX):]
-	case strings.HasPrefix(handlerName, MAGIC_HEAD_HANDLER_PREFIX):
+		versionActionHandlerName = deauthedHandlerName[len(MAGIC_PATCH_HANDLER_PREFIX):]
+	case strings.HasPrefix(deauthedHandlerName, MAGIC_HEAD_HANDLER_PREFIX):
 		routePtr.Method = "HEAD"
-		versionActionHandlerName = handlerName[len(MAGIC_HEAD_HANDLER_PREFIX):]
+		versionActionHandlerName = deauthedHandlerName[len(MAGIC_HEAD_HANDLER_PREFIX):]
 	default:
 		// skip... it's not a known prefix
 		return
@@ -182,11 +212,23 @@ func (router *Router) AllRoutesSummary() string {
 	return strings.Join(lines, "")
 }
 
+//  #####                              #     # ####### ####### ######
+// #     # ###### #####  #    # ###### #     #    #       #    #     #
+// #       #      #    # #    # #      #     #    #       #    #     #
+//  #####  #####  #    # #    # #####  #######    #       #    ######
+//       # #      #####  #    # #      #     #    #       #    #
+// #     # #      #   #   #  #  #      #     #    #       #    #
+//  #####  ###### #    #   ##   ###### #     #    #       #    #
+//
+
 // ServeHTTP does the basics:
 // 1. Any pre-handler stuff
 // 2. parse the route
-// 3. lookup & call handler method
-// 4. any post-handler stuff
+// 3. lookup route
+// 4. validate/auth route
+// 5. Auth (if necessary)
+// 6. call handler method
+// 7. any post-handler stuff (logging, etc.)
 func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// 1. Any pre-handler stuff
@@ -210,7 +252,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// 3a. lookup the handler method
+	// 3. lookup the handler method
 	routePtr, err := getRoute(router.RouteMap, req.Method, endpoint.VersionStr, endpoint.EntityName, endpoint.Action)
 	if err != nil || routePtr == nil {
 		// log.Println("404 routekey", routeKey(req.Method, endpoint.Version, endpoint.EntityName, endpoint.Action))
@@ -224,7 +266,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// log.Println("endpoint.PrimaryKey", endpoint.PrimaryKey)
 	// log.Println("endpoint.Extras", endpoint.Extras)
 
-	// 3b Some basic validation
+	// 4. Some basic validation
 
 	if req.Method == "POST" && endpoint.PrimaryKey != 0 && len(endpoint.Extras) == 1 {
 		log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
@@ -240,13 +282,21 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	typedHandler := routePtr.Handler
+	// 5. Auth
 
-	// 3c. call handler method
+	if routePtr.RequiresAuth {
+		isAuthorized, failureToAuthErrorNum := performAuth(routePtr, ctxPtr)
+		if isAuthorized == false {
+			ctxPtr.SendErrorPayload(http.StatusForbidden, int64(failureToAuthErrorNum), "Forbidden")
+			return
+		}
+	}
 
-	typedHandler(ctxPtr)
+	// 6. call handler method
 
-	// 4. any post-handler stuff
+	routePtr.Handler(ctxPtr)
+
+	// 7. any post-handler stuff
 
 	// TODO
 }

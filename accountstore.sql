@@ -33,9 +33,10 @@ begin
 end;
 $$ language plpgsql;
 
-CREATE OR REPLACE FUNCTION set_secretkey()
+CREATE OR REPLACE FUNCTION set_keys()
 RETURNS TRIGGER AS $$
 BEGIN
+  NEW.publickey = random_string(64);
   NEW.secretkey = random_string(64);
   RETURN NEW;
 END;
@@ -46,8 +47,9 @@ CREATE TABLE accounts (
     pkey bigserial NOT NULL PRIMARY KEY,
     
     name text NOT NULL DEFAULT '',
-    email text NOT NULL,
+    email text NOT NULL UNIQUE,
     passhash bytea NOT NULL,
+    publickey text NOT NULL UNIQUE,
     secretkey text NOT NULL,
     
     --  common
@@ -58,4 +60,4 @@ CREATE TABLE accounts (
 );
 CREATE TRIGGER set_tsadd BEFORE INSERT ON accounts FOR EACH ROW EXECUTE PROCEDURE set_created();
 CREATE TRIGGER set_tsmod BEFORE UPDATE ON accounts FOR EACH ROW EXECUTE PROCEDURE set_modified();
-CREATE TRIGGER set_apikey BEFORE INSERT ON accounts FOR EACH ROW EXECUTE PROCEDURE set_secretkey();
+CREATE TRIGGER set_apikey BEFORE INSERT ON accounts FOR EACH ROW EXECUTE PROCEDURE set_keys();

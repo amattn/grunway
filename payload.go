@@ -10,14 +10,6 @@ import (
 	"github.com/amattn/deeperror"
 )
 
-type PayloadController interface {
-	NewPaylodReference() interface{}
-}
-
-type TypedPayload interface {
-	PayloadType() string
-}
-
 // This will typically be serialized into a JSON formatted string
 type PayloadWrapper struct {
 	PayloadType string        `json:",omitempty"` // optional, typically used for sanity checking
@@ -25,6 +17,11 @@ type PayloadWrapper struct {
 	ErrNo       int64         // will be 0 on successful responses, non-zero otherwise
 	ErrStr      string        `json:",omitempty"` // end-user appropriate error message
 	Alert       string        `json:",omitempty"` // used when the client end user needs to be alerted of something: (eg, maintenance mode, downtime, sercurity, required update, etc.)
+}
+
+// If a payload implements this method, then the wrapper will autopopulate the PayloadType field
+type TypedPayload interface {
+	PayloadType() string
 }
 
 func NewPayloadWrapper() *PayloadWrapper {

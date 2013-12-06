@@ -1,12 +1,26 @@
 package grunway
 
 import (
+	"crypto/hmac"
+	"crypto/sha512"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
+	"unicode"
 
 	"github.com/amattn/deeperror"
+)
+
+const (
+	X_AUTH_PREFIX = "X-Auth-"
+	X_AUTH_PUB    = X_AUTH_PREFIX + "Pub"
+	X_AUTH_DATE   = X_AUTH_PREFIX + "Date"
+	X_AUTH_SCHEME = X_AUTH_PREFIX + "Scheme"
+	X_AUTH_SIG    = X_AUTH_PREFIX + "Sig"
 )
 
 type AccountController struct {
@@ -158,4 +172,117 @@ func (authController *AuthController) PostHandlerV1(c *Context) {
 
 	// response
 	c.WrapAndSendPayload(responsePayloadPtr)
+}
+
+//    #
+//   # #   #    # ##### #    #
+//  #   #  #    #   #   #    #
+// #     # #    #   #   ######
+// ####### #    #   #   #    #
+// #     # #    #   #   #    #
+// #     #  ####    #   #    #
+//
+
+func performAuth(routePtr *Route, ctx *Context) (authenticationWasSucessful bool, failureToAuthErrorNum int) {
+	publicKeys := ctx.R.Header[X_AUTH_PUB]
+	// There should be only 1!
+	if len(publicKeys) != 1 {
+		return false, 1444855534
+	}
+	publicKey := publicKeys[0]
+
+	secretKey, errInt := routePtr.Authenticator.GetSecretKey(publicKey)
+	if errInt != 0 {
+		return false, errInt
+	}
+
+	isValid := validateSignature(secretKey, ctx.R.Method, ctx.R.URL, ctx.R.Header)
+	if isValid {
+		return true, 0
+	} else {
+		return false, 1835141540
+	}
+}
+func stripAllWhitespace(s string) string {
+	isWhitespace := func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}
+	return strings.Map(isWhitespace, s)
+}
+func normalizeURI(url *url.URL) string {
+	// NormalizedURI:all lowercase, strip all anchors (#loc), strip all parameters
+	baseURI := url.RequestURI()
+	strippedURI := strings.Split(baseURI, "?")[0]
+	normalizedURI := strings.ToLower(strippedURI)
+	log.Println("normalizedURI", normalizedURI)
+	return normalizedURI
+}
+func normalizeQuery(url *url.URL) string {
+	return ""
+}
+
+func validateSignature(secretKey, method string, requestURL *url.URL, header http.Header) bool {
+	authHeaderKeys := []string{
+		"X-Auth-Date",
+		"X-Auth-Pub",
+		"X-Auth-Scheme",
+		"X-Auth-Sig",
+	}
+
+	for _, headerKey := range authHeaderKeys {
+		headerVals := header[headerKey]
+		if len(headerVals) != 1 {
+			// log.Println(headerKey, "has len(vals) != 1, expected 1")
+			return false
+		}
+	}
+	clientReqDate := (header["X-Auth-Date"][0])
+	// TODO validate that this is a parseable date?
+	clientReqPub := (header["X-Auth-Pub"][0])
+	clientReqScheme := (header["X-Auth-Scheme"][0])
+	if clientReqScheme != "S1-HMACSHA512" {
+		// log.Println("Expected Scheme:S1-HMACSHA512 ")
+		return false
+	}
+	clientReqEncodedSig := (header["X-Auth-Sig"][0])
+	clientReqSig, err := base64.URLEncoding.DecodeString(clientReqEncodedSig)
+	if err != nil {
+		// fmt.Println("base64.StdEncoding.DecodeString returned err:", err)
+		return false
+	}
+
+	// Generate signing key
+	secretKeyHMAC := hmac.New(sha512.New, []byte(secretKey))
+	secretKeyHMAC.Write([]byte(clientReqDate))
+	signingKey := secretKeyHMAC.Sum(nil)
+
+	// see auth.markdown for definitive definition.  as of this comment:
+	// vStringToSign =
+	//     HTTPRequestMethod + '\n' +
+	//     NormalizedURI + '\n' +
+	//     x-auth-date: YYYYMMDD'T'HHMMSS'Z' + '\n' +
+	//     x-auth-pub: YYYYYYYY + '\n' +
+	//     x-auth-scheme: S1-HMACSHA512
+
+	grunwayReqComponents := []string{
+		method,
+		normalizeURI(requestURL),
+		stripAllWhitespace(strings.ToLower(clientReqDate)),
+		stripAllWhitespace(strings.ToLower(clientReqPub)),
+		stripAllWhitespace(strings.ToLower(clientReqScheme)),
+	}
+
+	stringToSign := strings.Join(grunwayReqComponents, "\n")
+
+	signingKeyHMAC := hmac.New(sha512.New, signingKey)
+	signingKeyHMAC.Write([]byte(stringToSign))
+	expectedMAC := signingKeyHMAC.Sum(nil)
+	// log.Println("requestURL", requestURL)
+	// log.Println("clientReqSig", clientReqSig)
+	// log.Println("expectedMAC", expectedMAC)
+	// log.Println("expectedMAC", base64.URLEncoding.EncodeToString(expectedMAC))
+	return hmac.Equal(clientReqSig, expectedMAC)
 }

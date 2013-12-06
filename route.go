@@ -8,6 +8,7 @@ import (
 )
 
 const (
+	MAGIC_AUTH_REQUIRED_PREFIX  = "Auth"
 	MAGIC_HANDLER_KEYWORD       = "Handler"
 	MAGIC_GET_HANDLER_PREFIX    = "GetHandler"    // CRUD: read
 	MAGIC_POST_HANDLER_PREFIX   = "PostHandler"   // CRUD: create
@@ -22,11 +23,13 @@ const VERSION_BIT_DEPTH = 16
 type VersionUint uint16
 
 type Route struct {
+	RequiresAuth   bool
 	Method         string
 	Path           string
 	VersionStr     string
 	EntityName     string
 	Action         string
+	Authenticator  AuthenticatingPayloadController
 	Handler        func(*Context)
 	HandlerName    string // not actually used except for logging and debugging
 	ControllerName string // not actually used except for logging and debugging
