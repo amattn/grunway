@@ -31,9 +31,11 @@ type AuthController struct {
 }
 
 type AccountResponsePayload struct {
-	Id    int64
-	Name  string
-	Email string
+	Id        int64
+	Name      string
+	Email     string
+	PublicKey string
+	SecretKey string
 }
 
 func (payload *AccountResponsePayload) PayloadType() string {
@@ -100,7 +102,7 @@ func (authController *AccountController) PerformCreate(c *Context, createRequest
 		return false, 3713900413, nil
 	}
 
-	entityPtr, err := authController.AS.CreateAccount(requestPayloadPtr.Name, requestPayloadPtr.Email, requestPayloadPtr.Password)
+	acct, err := authController.AS.CreateAccount(requestPayloadPtr.Name, requestPayloadPtr.Email, requestPayloadPtr.Password)
 	if err != nil {
 		derr := deeperror.New(600544904, "Could Not Create Account", err)
 		derr.DebugMsg = fmt.Sprintf("authController.cs.CreateApp failure creating from requestPayloadPtr %+v", requestPayloadPtr)
@@ -108,12 +110,14 @@ func (authController *AccountController) PerformCreate(c *Context, createRequest
 		return false, derr.Num, nil
 	}
 
-	responsePayload := NewAccountResponsePayload()
-	responsePayload.Email = entityPtr.Email
-	responsePayload.Name = entityPtr.Name
-	responsePayload.Id = entityPtr.Pkey
+	responsePld := NewAccountResponsePayload()
+	responsePld.Email = acct.Email
+	responsePld.Name = acct.Name
+	responsePld.Id = acct.Pkey
+	responsePld.PublicKey = acct.PublicKey
+	responsePld.SecretKey = acct.SecretKey
 
-	return true, 0, responsePayload
+	return true, 0, responsePld
 }
 
 // #
@@ -130,6 +134,7 @@ type AccountLoginRequest struct {
 	Password string
 }
 type AccountLoginResponse struct {
+	PublicKey string
 	SecretKey string
 }
 
@@ -168,22 +173,23 @@ func (authController *AuthController) PostHandlerV1Login(c *Context) {
 	}
 
 	// do the actual login
-	acctPtr, err := authController.AS.Login(requestPayloadPtr.Email, requestPayloadPtr.Password)
+	acct, err := authController.AS.Login(requestPayloadPtr.Email, requestPayloadPtr.Password)
 	if err != nil {
 		c.SendErrorPayload(http.StatusForbidden, 5296511999, "Invalid email or password")
 		return
 	}
-	// if acctPtr == nil {
+	// if acct == nil {
 	// 	c.SendErrorPayload(http.StatusInternalServerError, 535272094, "")
 	// 	return
 	// }
 
 	// fetch SecretKey
-	responsePayloadPtr := new(AccountLoginResponse)
-	responsePayloadPtr.SecretKey = acctPtr.SecretKey
+	responsePld := new(AccountLoginResponse)
+	responsePld.PublicKey = acct.PublicKey
+	responsePld.SecretKey = acct.SecretKey
 
 	// response
-	c.WrapAndSendPayload(responsePayloadPtr)
+	c.WrapAndSendPayload(responsePld)
 }
 
 func (authController *AuthController) PostHandlerV1Logout(c *Context) {
