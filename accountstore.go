@@ -48,19 +48,19 @@ type AccountStore interface {
 
 type Account struct {
 	// System fields
-	Pkey     int64  `meddler:"pkey,pk"`
-	Passhash []byte `meddler:"passhash"`
-	// Salt      []byte `meddler:"-"` // may not be necessary if using certain algos (bcrypt)
+	Pkey int64 `meddler:"pkey,pk"`
+
+	// User fields
+	Name      string `meddler:"name"`
+	Email     string `meddler:"email"`
+	Passhash  []byte `meddler:"passhash"`
+	PublicKey string `meddler:"publickey"`
 	SecretKey string `meddler:"secretkey"`
 
 	// Times
 	Created   time.Time `meddler:"tsadd,utctimez"`
 	Modified  time.Time `meddler:"tsmod,utctimez"`
 	LastLogin time.Time `meddler:"lastlogin,utctimez"`
-
-	// User fields
-	Email string `meddler:"email"`
-	Name  string `meddler:"name"`
 }
 
 ///////////////////////////////////////////////////////////////////////////////

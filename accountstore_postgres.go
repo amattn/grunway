@@ -37,6 +37,7 @@ func scanAccountRow(rowPtr *sql.Row) (*Account, error) {
 		&(acctPtr.Name),
 		&(acctPtr.Email),
 		&(acctPtr.Passhash),
+		&(acctPtr.PublicKey),
 		&(acctPtr.SecretKey),
 		&(acctPtr.Created),
 		&(acctPtr.Modified),
@@ -70,13 +71,13 @@ func (store *PostgresAccountStore) Startup(attribs string) error {
 	store.DB = db
 	var query string
 	// store.createAccountStmt, err = db.Prepare("INSERT INTO accounts(email, passhash) VALUES($1, $2)")
-	query = "INSERT INTO accounts(name, email, passhash) VALUES($1, $2, $3) RETURNING pkey, name, email, passhash, secretkey, created, modified"
+	query = "INSERT INTO accounts(name, email, passhash) VALUES($1, $2, $3) RETURNING pkey, name, email, passhash, publickey, secretkey, created, modified"
 	store.createAccountStmt, err = db.Prepare(query)
 	if err != nil {
 		return deeperror.New(1136587312, "failure to prepare query:"+query, err)
 	}
 
-	query = "SELECT pkey, name, email, passhash, secretkey, created, modified FROM accounts WHERE email = $1"
+	query = "SELECT pkey, name, email, passhash, publickey, secretkey, created, modified FROM accounts WHERE email = $1"
 	store.queryAccountByEmailStmt, err = db.Prepare(query)
 	if err != nil {
 		return deeperror.New(1136587313, "failure to prepare query:"+query, err)
@@ -179,7 +180,7 @@ func (store *PostgresAccountStore) AccountWithEmail(email string) (*Account, err
 
 	acctPtr, err := scanAccountRow(rowPtr)
 	if err != nil {
-		derr := deeperror.New(3568377723, InternalServerErrorPrefix, err)
+		derr := deeperror.New(3134354280, InternalServerErrorPrefix, err)
 		derr.DebugMsg = "Scan failure"
 		return nil, derr
 	}

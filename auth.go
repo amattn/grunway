@@ -24,7 +24,10 @@ const (
 )
 
 type AccountController struct {
-	as AccountStore
+	AS AccountStore
+}
+type AuthController struct {
+	AS AccountStore
 }
 
 type AccountResponsePayload struct {
@@ -89,7 +92,11 @@ func (authController *AccountController) PerformCreate(c *Context, createRequest
 		return false, 3340732022, nil
 	}
 
-	entityPtr, err := authController.as.CreateAccount(requestPayloadPtr.Name, requestPayloadPtr.Email, requestPayloadPtr.Password)
+	if authController.AS == nil {
+		return false, 3713900413, nil
+	}
+
+	entityPtr, err := authController.AS.CreateAccount(requestPayloadPtr.Name, requestPayloadPtr.Email, requestPayloadPtr.Password)
 	if err != nil {
 		derr := deeperror.New(600544904, "Could Not Create Account", err)
 		derr.DebugMsg = fmt.Sprintf("authController.cs.CreateApp failure creating from requestPayloadPtr %+v", requestPayloadPtr)
@@ -114,10 +121,6 @@ func (authController *AccountController) PerformCreate(c *Context, createRequest
 // #######  ####   ####  # #    #
 //
 
-type AuthController struct {
-	as AccountStore
-}
-
 type AccountLoginRequest struct {
 	Email    string
 	Password string
@@ -127,6 +130,11 @@ type AccountLoginResponse struct {
 }
 
 func (authController *AuthController) PostHandlerV1Login(c *Context) {
+	// Check our assumptions
+	if authController.AS == nil {
+		c.SendErrorPayload(http.StatusInternalServerError, 3256219140, "If you see this, we broke something fierce and we are very sorry.  Please report.")
+	}
+
 	// Get the request
 	requestBody := c.R.Body
 	if requestBody == nil {
@@ -156,7 +164,7 @@ func (authController *AuthController) PostHandlerV1Login(c *Context) {
 	}
 
 	// do the actual login
-	acctPtr, err := authController.as.Login(requestPayloadPtr.Email, requestPayloadPtr.Password)
+	acctPtr, err := authController.AS.Login(requestPayloadPtr.Email, requestPayloadPtr.Password)
 	if err != nil {
 		c.SendErrorPayload(http.StatusForbidden, 5296511999, "Invalid email or password")
 		return
@@ -175,6 +183,11 @@ func (authController *AuthController) PostHandlerV1Login(c *Context) {
 }
 
 func (authController *AuthController) PostHandlerV1Logout(c *Context) {
+	// Check our assumptions
+	if authController.AS == nil {
+		c.SendErrorPayload(http.StatusInternalServerError, 3256219141, "If you see this, we broke something fierce and we are very sorry.  Please report.")
+	}
+
 	c.SendErrorPayload(http.StatusInternalServerError, 2745166051, "TODO")
 }
 
