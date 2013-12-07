@@ -14,7 +14,7 @@ import (
 type PayloadWrapper struct {
 	PayloadType string        `json:",omitempty"` // optional, typically used for sanity checking
 	PayloadList []interface{} `json:",omitempty"` // ALWAYS an array of objects. Typically, these are arrays of objects designed to be deserialized into entity structs (eg []BookPayload, []AuthorPayload)
-	ErrNo       int64         // will be 0 on successful responses, non-zero otherwise
+	ErrNo       int64         `json:",omitempty"` // will be 0 on successful responses, non-zero otherwise
 	ErrStr      string        `json:",omitempty"` // end-user appropriate error message
 	Alert       string        `json:",omitempty"` // used when the client end user needs to be alerted of something: (eg, maintenance mode, downtime, sercurity, required update, etc.)
 }

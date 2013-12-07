@@ -36,6 +36,10 @@ type AccountResponsePayload struct {
 	Email string
 }
 
+func (payload *AccountResponsePayload) PayloadType() string {
+	return "Account"
+}
+
 func NewAccountResponsePayload() *AccountResponsePayload {
 	return new(AccountResponsePayload) // leaky bucket?
 }

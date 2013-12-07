@@ -21,6 +21,11 @@ func StandardCreateHandler(controller CreatePerformer, c *Context, createRequest
 	}
 	defer requestBody.Close()
 
+	if c.E.PrimaryKey != 0 {
+		c.SendErrorPayload(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix+" Cannot set primary key")
+		return
+	}
+
 	// parse the json
 	decoder := json.NewDecoder(requestBody)
 	err := decoder.Decode(createRequestPayload)

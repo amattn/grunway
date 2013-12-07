@@ -54,7 +54,7 @@ func newTestRouter(as AccountStore) *Router {
 	router := NewRouter()
 	router.BasePath = "/api/"
 	router.RegisterEntity("account", &AccountController{as})
-	router.RegisterEntity("login", &AuthController{as})
+	router.RegisterEntity("auth", &AuthController{as})
 	router.RegisterEntity("qa", &QAController{})
 	return router
 }
@@ -166,7 +166,7 @@ func TestAPIRoutes(t *testing.T) {
 	}
 
 	// first just make one...  just to get a pk
-	createETP := EndpointTestPath{"POST", noHeaders, "/api/v1/account/", createPayload, http.StatusOK, 0, 1, checkCreateResponseBody}
+	createETP := EndpointTestPath{"POST", noHeaders, "/api/v1/account/create", createPayload, http.StatusOK, 0, 1, checkCreateResponseBody}
 	runETP(t, -1, createETP, ts)
 
 	// now that we have a pkey, iterate through the remaining etps
@@ -185,19 +185,21 @@ func TestAPIRoutes(t *testing.T) {
 	etps := []EndpointTestPath{
 
 		// CREATE
-		EndpointTestPath{"POST", noHeaders, "/api/v1/account/", createBadEmailPayload, http.StatusBadRequest, 512187273, 0, nil},
-		EndpointTestPath{"POST", noHeaders, "/api/v1/account/", createBadPassword1Payload, http.StatusBadRequest, 512187274, 0, nil},
-		EndpointTestPath{"POST", noHeaders, "/api/v1/account/", createBadPassword2Payload, http.StatusBadRequest, 512187274, 0, nil},
-		EndpointTestPath{"POST", noHeaders, "/api/v1/account/", createBadPassword3Payload, http.StatusBadRequest, 512187274, 0, nil},
-		EndpointTestPath{"POST", noHeaders, "/api/v1/account/", bogusPayload, http.StatusBadRequest, 512187273, 0, nil},
-		EndpointTestPath{"POST", noHeaders, "/api/v1/account/1", bogusPayload, http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, 0, nil},
-		EndpointTestPath{"POST", noHeaders, "/api/v2234/account/", "", http.StatusNotFound, NotFoundErrNo, 0, nil},
+		EndpointTestPath{"POST", noHeaders, "/api/v1/account/", "", http.StatusNotFound, NotFoundErrNo, 0, nil},
+		EndpointTestPath{"POST", noHeaders, "/api/v1/account/create", createBadEmailPayload, http.StatusBadRequest, 512187273, 0, nil},
+		EndpointTestPath{"POST", noHeaders, "/api/v1/account/create", createBadPassword1Payload, http.StatusBadRequest, 512187274, 0, nil},
+		EndpointTestPath{"POST", noHeaders, "/api/v1/account/create", createBadPassword2Payload, http.StatusBadRequest, 512187274, 0, nil},
+		EndpointTestPath{"POST", noHeaders, "/api/v1/account/create", createBadPassword3Payload, http.StatusBadRequest, 512187274, 0, nil},
+		EndpointTestPath{"POST", noHeaders, "/api/v1/account/create", bogusPayload, http.StatusBadRequest, 512187273, 0, nil},
+		EndpointTestPath{"POST", noHeaders, "/api/v1/account/1/create", createPayload, http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, 0, nil},
+		EndpointTestPath{"POST", noHeaders, "/api/v2234/account/create", "", http.StatusNotFound, NotFoundErrNo, 0, nil},
 		EndpointTestPath{"POST", noHeaders, "/api/v1/bogus/", "", http.StatusNotFound, NotFoundErrNo, 0, nil},
+		EndpointTestPath{"POST", noHeaders, "/api/v1/bogus/create", "", http.StatusNotFound, NotFoundErrNo, 0, nil},
 
 		// LOGIN
-		EndpointTestPath{"POST", noHeaders, "/api/v1/login", loginPayload, http.StatusOK, 0, 1, nil},
-		EndpointTestPath{"POST", noHeaders, "/api/v1/login", loginBadEmailPayload, http.StatusForbidden, 5296511999, 0, nil},
-		EndpointTestPath{"POST", noHeaders, "/api/v1/login", loginBadPassPayload, http.StatusForbidden, 5296511999, 0, nil},
+		EndpointTestPath{"POST", noHeaders, "/api/v1/auth/login", loginPayload, http.StatusOK, 0, 1, nil},
+		EndpointTestPath{"POST", noHeaders, "/api/v1/auth/login", loginBadEmailPayload, http.StatusForbidden, 5296511999, 0, nil},
+		EndpointTestPath{"POST", noHeaders, "/api/v1/auth/login", loginBadPassPayload, http.StatusForbidden, 5296511999, 0, nil},
 
 		// READ
 		EndpointTestPath{"GET", noHeaders, "/api/v1/qa/all", "", http.StatusForbidden, 1444855534, 0, nil},
