@@ -105,6 +105,8 @@ func TestRouter(t *testing.T) {
 
 	getURLAndStatusCodes := map[string]int{
 		// CRUD
+		"/api/":                http.StatusNotFound,
+		"/api/v1/":             http.StatusNotFound,
 		"/api/v1/book/1":       http.StatusOK,
 		"/api/v2/book/1":       http.StatusOK,
 		"/api/v3/book/1":       http.StatusOK,
@@ -127,13 +129,19 @@ func TestRouter(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer response.Body.Close()
 
 		if response.StatusCode != expectedStatusCode {
+
 			t.Error("GET", urlsuffix, "expected ", expectedStatusCode, ", got", response.StatusCode)
+			body, _ := ioutil.ReadAll(response.Body)
+			t.Error("response body:", string(body))
 		}
 	}
 
 	postURLAndStatusCodes := map[string]int{
+		"/api/":         http.StatusNotFound,
+		"/api/v1/":      http.StatusNotFound,
 		"/api/v1/book/": http.StatusOK,
 
 		"/api/v2/book/":   http.StatusNotFound,
@@ -150,13 +158,17 @@ func TestRouter(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
+		defer response.Body.Close()
 		if response.StatusCode != expectedStatusCode {
 			t.Error("POST", urlsuffix, "expected ", expectedStatusCode, ", got", response.StatusCode)
+			body, _ := ioutil.ReadAll(response.Body)
+			t.Error("response body:", string(body))
 		}
 	}
 
 	putURLAndStatusCodes := map[string]int{
+		"/api/":          http.StatusNotFound,
+		"/api/v1/":       http.StatusNotFound,
 		"/api/v1/book/1": http.StatusOK,
 
 		"/api/v2/book/1":   http.StatusNotFound,
@@ -176,9 +188,12 @@ func TestRouter(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer response.Body.Close()
 
 		if response.StatusCode != expectedStatusCode {
 			t.Error("PUT", urlsuffix, "expected ", expectedStatusCode, ", got", response.StatusCode)
+			body, _ := ioutil.ReadAll(response.Body)
+			t.Error("response body:", string(body))
 		}
 	}
 }

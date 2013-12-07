@@ -243,12 +243,22 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctxPtr.E = endpoint
 
 	if clientDeepErr != nil {
-		http.Error(w, fmt.Sprintf("%s (err code: %d)", BadRequestSyntaxErrorPrefix, clientDeepErr.Num), http.StatusBadRequest)
+		log.Println("clientDeepErr", clientDeepErr)
+		code := http.StatusBadRequest
+		if clientDeepErr.StatusCode > 299 && clientDeepErr.StatusCode < 999 {
+			code = clientDeepErr.StatusCode
+		}
+		ctxPtr.SendErrorPayload(code, clientDeepErr.Num, fmt.Sprintf("%d %s (err code: %d)", code, BadRequestSyntaxErrorPrefix, clientDeepErr.Num))
 		return
 	}
 
 	if serverDeepErr != nil {
-		http.Error(w, fmt.Sprintf("500 Internal Server Error (err code: %d)", serverDeepErr.Num), http.StatusInternalServerError)
+		log.Println("serverDeepErr", serverDeepErr)
+		code := http.StatusInternalServerError
+		if serverDeepErr.StatusCode > 299 && serverDeepErr.StatusCode < 999 {
+			code = serverDeepErr.StatusCode
+		}
+		ctxPtr.SendErrorPayload(code, serverDeepErr.Num, fmt.Sprintf("%d %s (err code: %d)", code, InternalServerErrorPrefix, serverDeepErr.Num))
 		return
 	}
 

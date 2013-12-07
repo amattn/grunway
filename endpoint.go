@@ -1,6 +1,7 @@
 package grunway
 
 import (
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -38,7 +39,7 @@ func parsePath(urlPtr *url.URL, prefix string) (endpoint Endpoint, clientErr, se
 
 	if strings.HasPrefix(urlPath, prefix) == false {
 		// is this an error?
-		return Endpoint{}, deeperror.New(3475081071, "Invalid Prefix", nil), nil
+		return Endpoint{}, deeperror.NewHTTPError(3475081071, "Invalid Prefix", nil, http.StatusNotFound), nil
 	}
 	urlPath = urlPath[len(prefix):]
 	urlPath = strings.Trim(urlPath, "/")
@@ -48,7 +49,7 @@ func parsePath(urlPtr *url.URL, prefix string) (endpoint Endpoint, clientErr, se
 
 	// basic validation: should have at least a version and an entity
 	if pathComponentsLen < 2 {
-		return Endpoint{}, deeperror.New(3475081072, "Cannot parse endpoint path, insufficent number of path components", nil), nil
+		return Endpoint{}, deeperror.NewHTTPError(3475081072, "Cannot parse endpoint path, insufficent number of path components", nil, http.StatusNotFound), nil
 	}
 
 	// parse version
