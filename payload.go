@@ -88,6 +88,10 @@ func sendOkPayload(w io.Writer) {
 }
 
 func sendPayloadWrapper(w io.Writer, code int, payloadWrapper *PayloadWrapper) {
+	if rw, isResponseWriter := w.(http.ResponseWriter); isResponseWriter {
+		rw.Header().Add("Content-Type", "application/json")
+	}
+
 	if code != http.StatusOK {
 		if rw, isResponseWriter := w.(http.ResponseWriter); isResponseWriter {
 			rw.WriteHeader(code)

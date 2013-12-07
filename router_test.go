@@ -42,7 +42,7 @@ func (payload BookPayload) PayloadType() string {
 }
 
 func (self *AuthorController) GetHandlerV1(ctx *Context) {
-
+	ctx.SendOkPayload()
 }
 
 func (self *BookController) GetHandlerV1(ctx *Context) {
@@ -55,31 +55,31 @@ func (self *BookController) GetHandlerV1(ctx *Context) {
 	ctx.WrapAndSendPayload(book)
 }
 func (self *BookController) GetHandlerV2(ctx *Context) {
-
+	ctx.SendOkPayload()
 }
 func (self *BookController) GetHandlerV003(ctx *Context) {
-
+	ctx.SendOkPayload()
 }
 func (self *BookController) GetHandlerV018(ctx *Context) {
-
+	ctx.SendOkPayload()
 }
 func (self *BookController) PostHandlerV1(ctx *Context) {
-
+	ctx.SendOkPayload()
 }
 func (self *BookController) PutHandlerV1(ctx *Context) {
-
+	ctx.SendOkPayload()
 }
 func (self *BookController) DeleteHandlerV1(ctx *Context) {
-
+	ctx.SendOkPayload()
 }
 func (self *BookController) GetHandlerV1All(ctx *Context) {
-
+	ctx.SendOkPayload()
 }
 func (self *BookController) GetHandlerV1Popular(ctx *Context) {
-
+	ctx.SendOkPayload()
 }
 func (self *BookController) AuthGetHandlerV1Login(ctx *Context) {
-
+	ctx.SendOkPayload()
 }
 
 func makeLibrary(t *testing.T) *Router {
@@ -124,6 +124,13 @@ func TestRouter(t *testing.T) {
 		"/api/v1/book/Bogus":   http.StatusNotFound,
 	}
 
+	commonTest := func(t *testing.T, response *http.Response, urlsuffix string) {
+		ct := response.Header.Get("Content-Type")
+		if ct != "application/json" {
+			t.Error(urlsuffix, "expected json content type, got", ct)
+		}
+	}
+
 	for urlsuffix, expectedStatusCode := range getURLAndStatusCodes {
 		response, err := http.Get(ts.URL + urlsuffix)
 		if err != nil {
@@ -137,6 +144,8 @@ func TestRouter(t *testing.T) {
 			body, _ := ioutil.ReadAll(response.Body)
 			t.Error("response body:", string(body))
 		}
+
+		commonTest(t, response, urlsuffix)
 	}
 
 	postURLAndStatusCodes := map[string]int{
@@ -164,6 +173,8 @@ func TestRouter(t *testing.T) {
 			body, _ := ioutil.ReadAll(response.Body)
 			t.Error("response body:", string(body))
 		}
+
+		commonTest(t, response, urlsuffix)
 	}
 
 	putURLAndStatusCodes := map[string]int{
@@ -195,6 +206,7 @@ func TestRouter(t *testing.T) {
 			body, _ := ioutil.ReadAll(response.Body)
 			t.Error("response body:", string(body))
 		}
+		commonTest(t, response, urlsuffix)
 	}
 }
 
