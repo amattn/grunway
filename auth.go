@@ -56,7 +56,7 @@ func NewAccountCreateRequestPayload() *AccountCreateRequestPayload {
 	return new(AccountCreateRequestPayload) // leaky bucket?
 }
 
-func (authController *AccountController) PostHandlerV1(c *Context) {
+func (authController *AccountController) PostHandlerV1Create(c *Context) {
 	StandardCreateHandler(authController, c, NewAccountCreateRequestPayload())
 }
 
@@ -126,7 +126,7 @@ type AccountLoginResponse struct {
 	SecretKey string
 }
 
-func (authController *AuthController) PostHandlerV1(c *Context) {
+func (authController *AuthController) PostHandlerV1Login(c *Context) {
 	// Get the request
 	requestBody := c.R.Body
 	if requestBody == nil {
@@ -172,6 +172,10 @@ func (authController *AuthController) PostHandlerV1(c *Context) {
 
 	// response
 	c.WrapAndSendPayload(responsePayloadPtr)
+}
+
+func (authController *AuthController) PostHandlerV1Logout(c *Context) {
+	c.SendErrorPayload(http.StatusInternalServerError, 2745166051, "TODO")
 }
 
 //    #
