@@ -64,6 +64,20 @@ func sendErrorPayload(w io.Writer, code int, errNo int64, errStr, alert string) 
 	payloadWrapper.ErrNo = errNo
 	payloadWrapper.ErrStr = errStr
 	payloadWrapper.Alert = alert
+
+	if rw, isResponseWriter := w.(http.ResponseWriter); isResponseWriter {
+		header := rw.Header()
+		if errNo != 0 {
+			header.Add("X-ErrorNum", fmt.Sprintf("%d", errNo))
+		}
+		if len(errStr) > 1 {
+			header.Add("X-ErrorStr", fmt.Sprintf("%s", errStr))
+		}
+		if len(alert) > 1 {
+			header.Add("X-Alert", fmt.Sprintf("%s", alert))
+		}
+	}
+
 	sendPayloadWrapper(w, code, payloadWrapper)
 }
 
