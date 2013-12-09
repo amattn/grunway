@@ -35,7 +35,6 @@ type AccountResponsePayload struct {
 	Name      string
 	Email     string
 	PublicKey string
-	SecretKey string
 }
 
 func (payload *AccountResponsePayload) PayloadType() string {
@@ -115,7 +114,6 @@ func (authController *AccountController) PerformCreate(c *Context, createRequest
 	responsePld.Name = acct.Name
 	responsePld.Id = acct.Pkey
 	responsePld.PublicKey = acct.PublicKey
-	responsePld.SecretKey = acct.SecretKey
 
 	return true, 0, responsePld
 }
@@ -135,7 +133,6 @@ type AccountLoginRequest struct {
 }
 type AccountLoginResponse struct {
 	PublicKey string
-	SecretKey string
 }
 
 func (authController *AuthController) PostHandlerV1Login(c *Context) {
@@ -186,7 +183,6 @@ func (authController *AuthController) PostHandlerV1Login(c *Context) {
 	// fetch SecretKey
 	responsePld := new(AccountLoginResponse)
 	responsePld.PublicKey = acct.PublicKey
-	responsePld.SecretKey = acct.SecretKey
 
 	// response
 	c.WrapAndSendPayload(responsePld)

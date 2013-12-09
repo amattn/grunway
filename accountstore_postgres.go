@@ -17,8 +17,9 @@ type PostgresAccountStore struct {
 	host string
 	port uint16
 
-	createAccountStmt       *sql.Stmt
-	queryAccountByEmailStmt *sql.Stmt
+	createAccountStmt          *sql.Stmt
+	queryAccountByEmailStmt    *sql.Stmt
+	updateAccountLastLoginStmt *sql.Stmt
 }
 
 // #     #
@@ -39,6 +40,7 @@ func scanAccountRow(rowPtr *sql.Row) (*Account, error) {
 		&(acctPtr.Passhash),
 		&(acctPtr.PublicKey),
 		&(acctPtr.SecretKey),
+		&(acctPtr.LastLogin),
 		&(acctPtr.Created),
 		&(acctPtr.Modified),
 	)
@@ -69,18 +71,27 @@ func (store *PostgresAccountStore) Startup(attribs string) error {
 		return deeperror.New(1136587311, "CANNOT COMMUNICATE WITH "+store.StoreName(), err)
 	}
 	store.DB = db
+
+	fieldsClause := "pkey, name, email, passhash, publickey, secretkey, lastlogin, created, modified"
+
 	var query string
 	// store.createAccountStmt, err = db.Prepare("INSERT INTO accounts(email, passhash) VALUES($1, $2)")
-	query = "INSERT INTO accounts(name, email, passhash) VALUES($1, $2, $3) RETURNING pkey, name, email, passhash, publickey, secretkey, created, modified"
+	query = "INSERT INTO accounts(name, email, passhash) VALUES($1, $2, $3) RETURNING " + fieldsClause
 	store.createAccountStmt, err = db.Prepare(query)
 	if err != nil {
 		return deeperror.New(1136587312, "failure to prepare query:"+query, err)
 	}
 
-	query = "SELECT pkey, name, email, passhash, publickey, secretkey, created, modified FROM accounts WHERE email = $1"
+	query = "SELECT " + fieldsClause + " FROM accounts WHERE email = $1"
 	store.queryAccountByEmailStmt, err = db.Prepare(query)
 	if err != nil {
 		return deeperror.New(1136587313, "failure to prepare query:"+query, err)
+	}
+
+	query = "UPDATE accounts SET lastlogin = now() WHERE pkey = $1 RETURNING " + fieldsClause
+	store.updateAccountLastLoginStmt, err = db.Prepare(query)
+	if err != nil {
+		return deeperror.New(1136587314, "failure to prepare query:"+query, err)
 	}
 
 	return nil
@@ -208,6 +219,23 @@ func (store *PostgresAccountStore) ChangeUserPassword(id int64, newPassword stri
 	return deeperror.NewTODOError(3300996832)
 
 }
+func (store *PostgresAccountStore) UpdateUserLastLogin(pkey int64) (*Account, error) {
+
+	rowPtr := store.updateAccountLastLoginStmt.QueryRow(pkey)
+	if rowPtr == nil {
+		derr := deeperror.NewHTTPError(3809025802, "pkey Not Found", nil, http.StatusNotFound)
+		return nil, derr
+	}
+
+	acctPtr, err := scanAccountRow(rowPtr)
+	if err != nil {
+		derr := deeperror.New(3809025803, InternalServerErrorPrefix, err)
+		derr.DebugMsg = "Scan failure"
+		return nil, derr
+	}
+
+	return acctPtr, nil
+}
 
 //    #
 //   # #   #    # ##### #    #
@@ -219,14 +247,20 @@ func (store *PostgresAccountStore) ChangeUserPassword(id int64, newPassword stri
 //
 
 func (store *PostgresAccountStore) Login(submittedEmail, submittedPassword string) (*Account, error) {
-	accountPtr, err := store.AccountWithEmail(submittedEmail)
+	acct, err := store.AccountWithEmail(submittedEmail)
 	if err != nil {
 		return nil, deeperror.New(3770650641, "Auth Failure", err)
 	}
 
-	err = bcrypt.CompareHashAndPassword(accountPtr.Passhash, []byte(submittedPassword))
+	err = bcrypt.CompareHashAndPassword(acct.Passhash, []byte(submittedPassword))
 	if err != nil {
 		return nil, deeperror.New(3770650642, "Auth Failure", err)
 	}
-	return accountPtr, nil
+
+	acct, err = store.UpdateUserLastLogin(acct.Pkey)
+	if err != nil {
+		return nil, deeperror.NewHTTPError(3770650643, "Auth Failure", err, http.StatusInternalServerError)
+	}
+
+	return acct, nil
 }

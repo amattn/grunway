@@ -4,6 +4,7 @@ RETURNS TRIGGER AS $$
 BEGIN
   NEW.created = now(); 
   NEW.modified = NEW.created;
+  NEW.lastlogin = NEW.created;
   RETURN NEW;
 END;
 $$ LANGUAGE PLPGSQL;
@@ -51,6 +52,7 @@ CREATE TABLE accounts (
     passhash bytea NOT NULL,
     publickey text NOT NULL UNIQUE,
     secretkey text NOT NULL,
+    lastlogin TIMESTAMP NOT NULL,
     
     --  common
     version smallint NOT NULL DEFAULT 0,

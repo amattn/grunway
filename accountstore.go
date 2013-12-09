@@ -28,19 +28,20 @@ type AccountStore interface {
 	CreateAccount(name, email, password string) (*Account, error)
 
 	// DELETE
-	// returns true when id is valid account is successfully removed.  if no account with id, returns false
+	// returns true when pkey is valid account is successfully removed.  if no account with pkey, returns false
 	// returns non-nil err on failure to execute
-	DeleteAccount(id int64) (bool, error)
+	DeleteAccount(pkey int64) (bool, error)
 
 	// QUERY
 	AllAccounts() ([]*Account, error)
-	AccountWithId(id int64) (*Account, error)
+	AccountWithId(pkey int64) (*Account, error)
 	AccountWithEmail(q string) (*Account, error)
 	EmailAddressAvailable(email string) (bool, error)
 
 	// UPDATE
-	ChangeUserEmail(id int64, newEmail string) error
-	ChangeUserPassword(id int64, newPassword string) error
+	ChangeUserEmail(pkey int64, newEmail string) error
+	ChangeUserPassword(pkey int64, newPassword string) error
+	UpdateUserLastLogin(pkey int64) (*Account, error)
 
 	// AUTH
 	Login(submittedEmail, submittedPassword string) (*Account, error)
@@ -58,8 +59,8 @@ type Account struct {
 	SecretKey string `meddler:"secretkey"`
 
 	// Times
-	Created   time.Time `meddler:"tsadd,utctimez"`
-	Modified  time.Time `meddler:"tsmod,utctimez"`
+	Created   time.Time `meddler:"created,utctimez"`
+	Modified  time.Time `meddler:"modified,utctimez"`
 	LastLogin time.Time `meddler:"lastlogin,utctimez"`
 }
 
