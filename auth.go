@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/amattn/deeperror"
@@ -21,6 +22,8 @@ const (
 	X_AUTH_DATE   = X_AUTH_PREFIX + "Date"
 	X_AUTH_SCHEME = X_AUTH_PREFIX + "Scheme"
 	X_AUTH_SIG    = X_AUTH_PREFIX + "Sig"
+
+	SCHEME_VERSION_1 = "S1-HMACSHA512"
 )
 
 type AccountController struct {
@@ -221,6 +224,7 @@ func performAuth(routePtr *Route, ctx *Context) (authenticationWasSucessful bool
 
 	isValid := validateSignature(secretKey, ctx.R.Method, ctx.R.URL, ctx.R.Header)
 	if isValid {
+		ctx.PublicKey = publicKey
 		return true, 0
 	} else {
 		return false, 1835141540
@@ -248,32 +252,33 @@ func normalizeQuery(url *url.URL) string {
 }
 
 func validateSignature(secretKey, method string, requestURL *url.URL, header http.Header) bool {
+	log.Println("validateSignature")
 	authHeaderKeys := []string{
-		"X-Auth-Date",
-		"X-Auth-Pub",
-		"X-Auth-Scheme",
-		"X-Auth-Sig",
+		X_AUTH_DATE,
+		X_AUTH_PUB,
+		X_AUTH_SCHEME,
+		X_AUTH_SIG,
 	}
 
 	for _, headerKey := range authHeaderKeys {
 		headerVals := header[headerKey]
 		if len(headerVals) != 1 {
-			// log.Println(headerKey, "has len(vals) != 1, expected 1")
+			log.Println(headerKey, "has len(vals) != 1, expected 1")
 			return false
 		}
 	}
-	clientReqDate := (header["X-Auth-Date"][0])
+	clientReqDate := (header[X_AUTH_DATE][0])
 	// TODO validate that this is a parseable date?
-	clientReqPub := (header["X-Auth-Pub"][0])
-	clientReqScheme := (header["X-Auth-Scheme"][0])
-	if clientReqScheme != "S1-HMACSHA512" {
-		// log.Println("Expected Scheme:S1-HMACSHA512 ")
+	clientReqPub := (header[X_AUTH_PUB][0])
+	clientReqScheme := (header[X_AUTH_SCHEME][0])
+	if clientReqScheme != SCHEME_VERSION_1 {
+		log.Println("Expected Scheme:S1-HMACSHA512 ")
 		return false
 	}
-	clientReqEncodedSig := (header["X-Auth-Sig"][0])
+	clientReqEncodedSig := (header[X_AUTH_SIG][0])
 	clientReqSig, err := base64.URLEncoding.DecodeString(clientReqEncodedSig)
 	if err != nil {
-		// fmt.Println("base64.StdEncoding.DecodeString returned err:", err)
+		fmt.Println("base64.StdEncoding.DecodeString returned err:", err)
 		return false
 	}
 
@@ -303,9 +308,48 @@ func validateSignature(secretKey, method string, requestURL *url.URL, header htt
 	signingKeyHMAC := hmac.New(sha512.New, signingKey)
 	signingKeyHMAC.Write([]byte(stringToSign))
 	expectedMAC := signingKeyHMAC.Sum(nil)
-	// log.Println("requestURL", requestURL)
-	// log.Println("clientReqSig", clientReqSig)
-	// log.Println("expectedMAC", expectedMAC)
-	// log.Println("expectedMAC", base64.URLEncoding.EncodeToString(expectedMAC))
+	log.Println("requestURL", requestURL)
+	log.Println("clientReqSig", clientReqSig)
+	log.Println("expectedMAC", expectedMAC)
+	log.Println("expectedMAC", base64.URLEncoding.EncodeToString(expectedMAC))
 	return hmac.Equal(clientReqSig, expectedMAC)
+}
+
+// ######
+// #     # ######  ####  #    # ######  ####  #####
+// #     # #      #    # #    # #      #        #
+// ######  #####  #    # #    # #####   ####    #
+// #   #   #      #  # # #    # #           #   #
+// #    #  #      #   #  #    # #      #    #   #
+// #     # ######  ### #  ####  ######  ####    #
+//
+
+func SignRequest(req *http.Request, publicKey, secretKey string) {
+	now := time.Now()
+	timeFormat := "20060102'T'150405'Z'"
+	dateStr := now.Format(timeFormat)
+	req.Header.Add(X_AUTH_DATE, dateStr)
+	req.Header.Add(X_AUTH_PUB, publicKey)
+	req.Header.Add(X_AUTH_SCHEME, SCHEME_VERSION_1)
+
+	// Generate signing key
+	secretKeyHMAC := hmac.New(sha512.New, []byte(secretKey))
+	secretKeyHMAC.Write([]byte(dateStr))
+	vSigningKey := secretKeyHMAC.Sum(nil)
+
+	grunwayReqComponents := []string{
+		req.Method,
+		normalizeURI(req.URL),
+		stripAllWhitespace(strings.ToLower(dateStr)),
+		stripAllWhitespace(strings.ToLower(publicKey)),
+		stripAllWhitespace(strings.ToLower(SCHEME_VERSION_1)),
+	}
+
+	vStringToSign := strings.Join(grunwayReqComponents, "\n")
+
+	signingKeyHMAC := hmac.New(sha512.New, vSigningKey)
+	signingKeyHMAC.Write([]byte(vStringToSign))
+	sig := signingKeyHMAC.Sum(nil)
+	base64sig := base64.URLEncoding.EncodeToString(sig)
+	req.Header.Add(X_AUTH_SIG, base64sig)
 }

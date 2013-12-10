@@ -36,6 +36,7 @@ type AccountStore interface {
 	AllAccounts() ([]*Account, error)
 	AccountWithId(pkey int64) (*Account, error)
 	AccountWithEmail(q string) (*Account, error)
+	AccountWithPublicKey(q string) (*Account, error)
 	EmailAddressAvailable(email string) (bool, error)
 
 	// UPDATE

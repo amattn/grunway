@@ -33,7 +33,7 @@ func TestValidateSignature(t *testing.T) {
 		"X-Auth-Date":   []string{"abc"},
 		"X-Auth-Pub":    []string{"abc"},
 		"X-Auth-Sig":    []string{encodedSig},
-		"X-Auth-Scheme": []string{"S1-HMACSHA512"},
+		"X-Auth-Scheme": []string{SCHEME_VERSION_1},
 	}
 	isValid := validateSignature("secretKey", "GET", requestURL, header)
 	if isValid == false {
@@ -86,9 +86,7 @@ func setupRouter(t *testing.T) *Router {
 	port := uint16(27500)
 
 	AS := new(PostgresAccountStore)
-
 	attribs := fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%d", "authtest", "authtest", "authtestdb", host, port)
-
 	err := AS.Startup(attribs)
 	if err != nil {
 		log.Fatalln("9838924797 FATAL: Cannot startup PostgresAccountStore", host, port, err)
@@ -176,7 +174,7 @@ func TestAPIRoutes(t *testing.T) {
 
 	// Auth stuff
 	qaAllHeader := map[string]string{
-		X_AUTH_SCHEME: "S1-HMACSHA512",
+		X_AUTH_SCHEME: SCHEME_VERSION_1,
 		X_AUTH_DATE:   "abc",
 		X_AUTH_PUB:    "abc",
 		X_AUTH_SIG:    "yo482lqxi_r5XBI9WLtFdVi16SdzNBfQthNkUQjqr8G5yNNGBxY-yDIZqHEGbjh5sxcPjaB2-tbIBNWbWMvf1g==",

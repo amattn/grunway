@@ -30,7 +30,7 @@ type PayloadController interface {
 }
 type AuthenticatingPayloadController interface {
 	PayloadController
-	GetSecretKey(publicKey string) (string, int)
+	GetSecretKey(publicKey string) (secretKey string, errNum int)
 }
 
 type Router struct {
@@ -230,7 +230,6 @@ func (router *Router) AllRoutesSummary() string {
 // 6. call handler method
 // 7. any post-handler stuff (logging, etc.)
 func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-
 	// 1. Any pre-handler stuff
 	// TODO
 
@@ -243,12 +242,13 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctxPtr.E = endpoint
 
 	if clientDeepErr != nil {
-		// log.Println("clientDeepErr", clientDeepErr)
+		log.Println("clientDeepErr", clientDeepErr)
 		code := http.StatusBadRequest
 		if clientDeepErr.StatusCode > 299 && clientDeepErr.StatusCode < 999 {
 			code = clientDeepErr.StatusCode
 		}
 		ctxPtr.SendErrorPayload(code, clientDeepErr.Num, fmt.Sprintf("%d %s (err code: %d)", code, BadRequestSyntaxErrorPrefix, clientDeepErr.Num))
+		// log.Println("clientDeepErr.Num", clientDeepErr.Num)
 		return
 	}
 
@@ -265,7 +265,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// 3. lookup the handler method
 	routePtr, err := getRoute(router.RouteMap, req.Method, endpoint.VersionStr, endpoint.EntityName, endpoint.Action)
 	if err != nil || routePtr == nil {
-		// log.Println("404 routekey", routeKey(req.Method, endpoint.Version, endpoint.EntityName, endpoint.Action))
+		log.Println("404 routekey", routeKey(req.Method, endpoint.VersionStr, endpoint.EntityName, endpoint.Action))
 		log.Printf("404 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
 		// http.NotFound(w, req)
 		ctxPtr.SendErrorPayload(http.StatusNotFound, NotFoundErrNo, "404 Not Found")
@@ -295,6 +295,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// 5. Auth
 
 	if routePtr.RequiresAuth {
+		log.Println("RequiresAuth = true")
 		isAuthorized, failureToAuthErrorNum := performAuth(routePtr, ctxPtr)
 		if isAuthorized == false {
 			ctxPtr.SendErrorPayload(http.StatusForbidden, int64(failureToAuthErrorNum), "Forbidden")

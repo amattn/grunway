@@ -17,9 +17,10 @@ type PostgresAccountStore struct {
 	host string
 	port uint16
 
-	createAccountStmt          *sql.Stmt
-	queryAccountByEmailStmt    *sql.Stmt
-	updateAccountLastLoginStmt *sql.Stmt
+	createAccountStmt           *sql.Stmt
+	queryAccountByEmailStmt     *sql.Stmt
+	queryAccountByPublicKeyStmt *sql.Stmt
+	updateAccountLastLoginStmt  *sql.Stmt
 }
 
 // #     #
@@ -84,6 +85,12 @@ func (store *PostgresAccountStore) Startup(attribs string) error {
 
 	query = "SELECT " + fieldsClause + " FROM accounts WHERE email = $1"
 	store.queryAccountByEmailStmt, err = db.Prepare(query)
+	if err != nil {
+		return deeperror.New(1136587313, "failure to prepare query:"+query, err)
+	}
+
+	query = "SELECT " + fieldsClause + " FROM accounts WHERE publickey = $1"
+	store.queryAccountByPublicKeyStmt, err = db.Prepare(query)
 	if err != nil {
 		return deeperror.New(1136587313, "failure to prepare query:"+query, err)
 	}
@@ -184,6 +191,21 @@ func (store *PostgresAccountStore) AccountWithId(id int64) (*Account, error) {
 }
 func (store *PostgresAccountStore) AccountWithEmail(email string) (*Account, error) {
 	rowPtr := store.queryAccountByEmailStmt.QueryRow(email)
+	if rowPtr == nil {
+		derr := deeperror.NewHTTPError(3404797117, "Email Not Found", nil, http.StatusNotFound)
+		return nil, derr
+	}
+
+	acctPtr, err := scanAccountRow(rowPtr)
+	if err != nil {
+		derr := deeperror.New(3134354280, InternalServerErrorPrefix, err)
+		derr.DebugMsg = "Scan failure"
+		return nil, derr
+	}
+	return acctPtr, nil
+}
+func (store *PostgresAccountStore) AccountWithPublicKey(email string) (*Account, error) {
+	rowPtr := store.queryAccountByPublicKeyStmt.QueryRow(email)
 	if rowPtr == nil {
 		derr := deeperror.NewHTTPError(3404797117, "Email Not Found", nil, http.StatusNotFound)
 		return nil, derr

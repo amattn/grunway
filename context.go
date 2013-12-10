@@ -8,9 +8,10 @@ import (
 )
 
 type Context struct {
-	W http.ResponseWriter
-	R *http.Request
-	E Endpoint
+	W         http.ResponseWriter
+	R         *http.Request
+	E         Endpoint
+	PublicKey string // for Auth'd requests, will be set to public key if Auth was successful, "" otherwise
 }
 
 func (c *Context) WrapAndSendPayload(payload interface{}) {
