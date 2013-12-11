@@ -94,22 +94,30 @@ func (authController *AccountController) CreatePayloadIsValid(c *Context, create
 	return true, 0
 }
 
-func (authController *AccountController) PerformCreate(c *Context, createRequestPayload interface{}) (bool, int64, interface{}) {
+func (authController *AccountController) PerformCreate(c *Context, createRequestPayload interface{}) (bool, *deeperror.DeepError, interface{}) {
 	requestPayloadPtr, isExpectedType := createRequestPayload.(*AccountCreateRequestPayload)
 	if isExpectedType == false {
-		return false, 3340732022, nil
+		return false, deeperror.NewHTTPError(3340732022, InternalServerErrorPrefix, nil, http.StatusInternalServerError), nil
 	}
 
 	if authController.AS == nil {
-		return false, 3713900413, nil
+		return false, deeperror.NewHTTPError(3713900413, InternalServerErrorPrefix, nil, http.StatusInternalServerError), nil
 	}
 
 	acct, err := authController.AS.CreateAccount(requestPayloadPtr.Name, requestPayloadPtr.Email, requestPayloadPtr.Password)
 	if err != nil {
-		derr := deeperror.New(600544904, "Could Not Create Account", err)
+		// attempt to figure out why we had a failure:
+
+		isAvail, err := authController.AS.EmailAddressAvailable(requestPayloadPtr.Email)
+		if err == nil && isAvail == false {
+			derr := deeperror.NewHTTPError(300544903, "Could Not Create Account, Email address unavailable", err, http.StatusConflict)
+			return false, derr, nil
+		}
+
+		derr := deeperror.New(300544904, "Could Not Create Account", err)
 		derr.DebugMsg = fmt.Sprintf("authController.cs.CreateApp failure creating from requestPayloadPtr %+v", requestPayloadPtr)
-		log.Println(derr)
-		return false, derr.Num, nil
+
+		return false, derr, nil
 	}
 
 	responsePld := NewAccountResponsePayload()
@@ -118,7 +126,7 @@ func (authController *AccountController) PerformCreate(c *Context, createRequest
 	responsePld.Id = acct.Pkey
 	responsePld.PublicKey = acct.PublicKey
 
-	return true, 0, responsePld
+	return true, nil, responsePld
 }
 
 // #

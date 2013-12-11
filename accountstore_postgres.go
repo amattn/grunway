@@ -32,7 +32,7 @@ type PostgresAccountStore struct {
 // #     # ###### ###### #      ###### #    #  ####
 //
 
-func scanAccountRow(rowPtr *sql.Row) (*Account, error) {
+func scanAccountRow(rowPtr *sql.Row) (*Account, *deeperror.DeepError) {
 	acctPtr := new(Account)
 	err := rowPtr.Scan(
 		&(acctPtr.Pkey),
@@ -47,7 +47,15 @@ func scanAccountRow(rowPtr *sql.Row) (*Account, error) {
 	)
 
 	if err != nil {
-		return nil, deeperror.New(3044022520, InternalServerErrorPrefix, err)
+		if err == sql.ErrNoRows {
+			derr := deeperror.New(3044022520, NotFoundPrefix, err)
+			derr.DebugMsg = "No rows returned"
+			return nil, derr
+		} else {
+			derr := deeperror.New(3044022521, InternalServerErrorPrefix, err)
+			derr.DebugMsg = "Scan failure"
+			return nil, derr
+		}
 	}
 	return acctPtr, nil
 }
@@ -148,11 +156,11 @@ func (store *PostgresAccountStore) CreateAccount(name, email, password string) (
 		return nil, derr
 	}
 
-	acctPtr, err := scanAccountRow(rowPtr)
-	if err != nil {
-		derr := deeperror.New(3568377723, InternalServerErrorPrefix, err)
-		derr.DebugMsg = "Scan failure"
-		return nil, derr
+	acctPtr, derr := scanAccountRow(rowPtr)
+	if derr != nil {
+		innerDerr := deeperror.NewHTTPError(3568377723, derr.EndUserMsg, derr, derr.StatusCode)
+		innerDerr.DebugMsg = "Scan returned error"
+		return nil, innerDerr
 	}
 
 	return acctPtr, nil

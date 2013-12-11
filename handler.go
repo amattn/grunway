@@ -3,10 +3,12 @@ package grunway
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/amattn/deeperror"
 )
 
 type CreatePerformer interface {
-	PerformCreate(c *Context, createRequestPayload interface{}) (didSucceed bool, errNo int64, responsePayload interface{})
+	PerformCreate(c *Context, createRequestPayload interface{}) (didSucceed bool, derr *deeperror.DeepError, responsePayload interface{})
 }
 type CreateValidator interface {
 	CreatePayloadIsValid(c *Context, createRequestPayload interface{}) (isValid bool, errNo int64)
@@ -47,9 +49,13 @@ func StandardCreateHandler(controller CreatePerformer, c *Context, createRequest
 	}
 
 	// add entity to the model
-	didSucceed, errNo, responsePayload := controller.PerformCreate(c, createRequestPayload)
+	didSucceed, derr, responsePayload := controller.PerformCreate(c, createRequestPayload)
 	if didSucceed == false {
-		c.SendErrorPayload(http.StatusInternalServerError, errNo, InternalServerErrorPrefix)
+		if derr.StatusCode > 299 {
+			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
+		} else {
+			c.SendErrorPayload(http.StatusInternalServerError, derr.Num, InternalServerErrorPrefix)
+		}
 		return
 	}
 
