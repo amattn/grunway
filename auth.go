@@ -324,6 +324,7 @@ func validateSignature(secretKey, method string, requestURL *url.URL, header htt
 // #     # ######  ### #  ####  ######  ####    #
 //
 
+// typically used for testing
 func SignRequest(req *http.Request, publicKey, secretKey string) {
 	now := time.Now()
 	timeFormat := "20060102'T'150405'Z'"

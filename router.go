@@ -242,7 +242,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctxPtr.E = endpoint
 
 	if clientDeepErr != nil {
-		log.Println("clientDeepErr", clientDeepErr)
+		// log.Println("clientDeepErr", clientDeepErr)
 		code := http.StatusBadRequest
 		if clientDeepErr.StatusCode > 299 && clientDeepErr.StatusCode < 999 {
 			code = clientDeepErr.StatusCode
