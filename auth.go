@@ -108,13 +108,17 @@ func (authController *AccountController) PerformCreate(c *Context, createRequest
 	if err != nil {
 		// attempt to figure out why we had a failure:
 
-		isAvail, err := authController.AS.EmailAddressAvailable(requestPayloadPtr.Email)
-		if err == nil && isAvail == false {
-			derr := deeperror.NewHTTPError(300544903, "Could Not Create Account, Email address unavailable", err, http.StatusConflict)
-			return false, derr, nil
+		isAvail, derr := authController.AS.EmailAddressAvailable(requestPayloadPtr.Email)
+		if derr == nil {
+			if isAvail == false {
+				innerDerr := deeperror.NewHTTPError(300544903, "Could Not Create Account, Email address unavailable", derr, http.StatusConflict)
+				return false, innerDerr, nil
+			}
 		}
 
-		derr := deeperror.New(300544904, "Could Not Create Account", err)
+		log.Println("isAvail", isAvail)
+		log.Println("derr", derr)
+		derr = deeperror.New(300544904, "Could Not Create Account", err)
 		derr.DebugMsg = fmt.Sprintf("authController.cs.CreateApp failure creating from requestPayloadPtr %+v", requestPayloadPtr)
 
 		return false, derr, nil

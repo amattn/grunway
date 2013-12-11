@@ -37,7 +37,7 @@ type AccountStore interface {
 	AccountWithId(pkey int64) (*Account, error)
 	AccountWithEmail(q string) (*Account, error)
 	AccountWithPublicKey(q string) (*Account, error)
-	EmailAddressAvailable(email string) (bool, error)
+	EmailAddressAvailable(email string) (bool, *deeperror.DeepError)
 
 	// UPDATE
 	ChangeUserEmail(pkey int64, newEmail string) error

@@ -200,8 +200,7 @@ func (store *PostgresAccountStore) AccountWithId(id int64) (*Account, error) {
 func (store *PostgresAccountStore) AccountWithEmail(email string) (*Account, error) {
 	rowPtr := store.queryAccountByEmailStmt.QueryRow(email)
 	if rowPtr == nil {
-		derr := deeperror.NewHTTPError(3404797117, "Email Not Found", nil, http.StatusNotFound)
-		return nil, derr
+		return nil, nil
 	}
 
 	acctPtr, err := scanAccountRow(rowPtr)
@@ -215,8 +214,7 @@ func (store *PostgresAccountStore) AccountWithEmail(email string) (*Account, err
 func (store *PostgresAccountStore) AccountWithPublicKey(email string) (*Account, error) {
 	rowPtr := store.queryAccountByPublicKeyStmt.QueryRow(email)
 	if rowPtr == nil {
-		derr := deeperror.NewHTTPError(3404797117, "Email Not Found", nil, http.StatusNotFound)
-		return nil, derr
+		return nil, nil
 	}
 
 	acctPtr, err := scanAccountRow(rowPtr)
@@ -228,8 +226,16 @@ func (store *PostgresAccountStore) AccountWithPublicKey(email string) (*Account,
 	return acctPtr, nil
 }
 
-func (store *PostgresAccountStore) EmailAddressAvailable(email string) (bool, error) {
-	return false, deeperror.NewTODOError(3300996840)
+func (store *PostgresAccountStore) EmailAddressAvailable(email string) (bool, *deeperror.DeepError) {
+
+	acct, err := store.AccountWithEmail(email)
+
+	if err != nil {
+		derr := deeperror.NewHTTPError(3237725249, "Could not query email address", err, http.StatusInternalServerError)
+		return false, derr
+	} else {
+		return (acct == nil), nil
+	}
 }
 
 // #     #
