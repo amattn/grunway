@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -24,6 +25,8 @@ const (
 	X_AUTH_SIG    = X_AUTH_PREFIX + "Sig"
 
 	SCHEME_VERSION_1 = "S1-HMACSHA512"
+
+	AUTH_DATE_TIME_FORMAT = "20060102T150405Z"
 )
 
 type AccountController struct {
@@ -235,12 +238,13 @@ func performAuth(routePtr *Route, ctx *Context) (authenticationWasSucessful bool
 		return false, errInt
 	}
 
-	isValid := validateSignature(secretKey, ctx.R.Method, ctx.R.URL, ctx.R.Header)
-	if isValid {
+	validationErrNum := validateSignature(secretKey, ctx.R.Method, ctx.R.URL, ctx.R.Header)
+	if validationErrNum == 0 {
 		ctx.PublicKey = publicKey
 		return true, 0
 	} else {
-		return false, 1835141540
+		ctx.PublicKey = "" // be a little paranoid here.
+		return false, validationErrNum
 	}
 }
 func stripAllWhitespace(s string) string {
@@ -264,8 +268,8 @@ func normalizeQuery(url *url.URL) string {
 	return ""
 }
 
-func validateSignature(secretKey, method string, requestURL *url.URL, header http.Header) bool {
-	log.Println("validateSignature")
+func validateSignature(secretKey, method string, requestURL *url.URL, header http.Header) (validationErrNum int) {
+	// log.Println("validateSignature")
 	authHeaderKeys := []string{
 		X_AUTH_DATE,
 		X_AUTH_PUB,
@@ -276,23 +280,37 @@ func validateSignature(secretKey, method string, requestURL *url.URL, header htt
 	for _, headerKey := range authHeaderKeys {
 		headerVals := header[headerKey]
 		if len(headerVals) != 1 {
-			log.Println(headerKey, "has len(vals) != 1, expected 1")
-			return false
+			// log.Println(headerKey, "has len(vals) != 1, expected 1")
+			return 32601110
 		}
 	}
 	clientReqDate := (header[X_AUTH_DATE][0])
+	reqTime, err := time.Parse(AUTH_DATE_TIME_FORMAT, clientReqDate)
+	if err != nil {
+		// log.Println(cannot parse time)
+		// log.Println("err", err)
+		return 32601111
+	} else {
+		timediff := time.Now().Sub(reqTime)
+		// arbitrary threshold... try to take into account longish response times for mobile devices...
+		if math.Abs(timediff.Seconds()) > 600 {
+			// log.Println(req too old)
+			return 32601112
+		}
+	}
+
 	// TODO validate that this is a parseable date?
 	clientReqPub := (header[X_AUTH_PUB][0])
 	clientReqScheme := (header[X_AUTH_SCHEME][0])
 	if clientReqScheme != SCHEME_VERSION_1 {
-		log.Println("Expected Scheme:S1-HMACSHA512 ")
-		return false
+		// log.Println("Expected Scheme:S1-HMACSHA512 ")
+		return 32601113
 	}
 	clientReqEncodedSig := (header[X_AUTH_SIG][0])
 	clientReqSig, err := base64.URLEncoding.DecodeString(clientReqEncodedSig)
 	if err != nil {
-		fmt.Println("base64.StdEncoding.DecodeString returned err:", err)
-		return false
+		// log.Println("base64.StdEncoding.DecodeString returned err:", err)
+		return 32601114
 	}
 
 	// Generate signing key
@@ -311,9 +329,9 @@ func validateSignature(secretKey, method string, requestURL *url.URL, header htt
 	grunwayReqComponents := []string{
 		method,
 		normalizeURI(requestURL),
-		stripAllWhitespace(strings.ToLower(clientReqDate)),
-		stripAllWhitespace(strings.ToLower(clientReqPub)),
-		stripAllWhitespace(strings.ToLower(clientReqScheme)),
+		clientReqDate,
+		clientReqPub,
+		clientReqScheme,
 	}
 
 	stringToSign := strings.Join(grunwayReqComponents, "\n")
@@ -321,11 +339,16 @@ func validateSignature(secretKey, method string, requestURL *url.URL, header htt
 	signingKeyHMAC := hmac.New(sha512.New, signingKey)
 	signingKeyHMAC.Write([]byte(stringToSign))
 	expectedMAC := signingKeyHMAC.Sum(nil)
-	log.Println("requestURL", requestURL)
-	log.Println("clientReqSig", clientReqSig)
-	log.Println("expectedMAC", expectedMAC)
-	log.Println("expectedMAC", base64.URLEncoding.EncodeToString(expectedMAC))
-	return hmac.Equal(clientReqSig, expectedMAC)
+	// log.Println("signingKey", base64.URLEncoding.EncodeToString(signingKey))
+	// log.Println("stringToSign", stringToSign)
+	// log.Println("clientReqSig", clientReqSig)
+	// log.Println("expectedMAC", expectedMAC)
+	// log.Println("expectedMAC", base64.URLEncoding.EncodeToString(expectedMAC))
+	if hmac.Equal(clientReqSig, expectedMAC) {
+		return 0
+	} else {
+		return 32601119
+	}
 }
 
 // ######
@@ -340,8 +363,7 @@ func validateSignature(secretKey, method string, requestURL *url.URL, header htt
 // typically used for testing
 func SignRequest(req *http.Request, publicKey, secretKey string) {
 	now := time.Now()
-	timeFormat := "20060102'T'150405'Z'"
-	dateStr := now.Format(timeFormat)
+	dateStr := now.Format(AUTH_DATE_TIME_FORMAT)
 	req.Header.Add(X_AUTH_DATE, dateStr)
 	req.Header.Add(X_AUTH_PUB, publicKey)
 	req.Header.Add(X_AUTH_SCHEME, SCHEME_VERSION_1)
@@ -351,12 +373,13 @@ func SignRequest(req *http.Request, publicKey, secretKey string) {
 	secretKeyHMAC.Write([]byte(dateStr))
 	vSigningKey := secretKeyHMAC.Sum(nil)
 
+	// generate string to sign
 	grunwayReqComponents := []string{
 		req.Method,
 		normalizeURI(req.URL),
-		stripAllWhitespace(strings.ToLower(dateStr)),
-		stripAllWhitespace(strings.ToLower(publicKey)),
-		stripAllWhitespace(strings.ToLower(SCHEME_VERSION_1)),
+		dateStr,
+		publicKey,
+		SCHEME_VERSION_1,
 	}
 
 	vStringToSign := strings.Join(grunwayReqComponents, "\n")
