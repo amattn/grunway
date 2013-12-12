@@ -168,9 +168,9 @@ func TestAPIRoutes(t *testing.T) {
 	runETP(t, -1, createETP, ts)
 
 	// now that we have a pkey, iterate through the remaining etps
-	log.Println("createdPK", createdPK)
+	t.Log("createdPK", createdPK)
 	pk := strconv.Itoa(int(createdPK))
-	log.Println("pk", pk)
+	t.Log("pk", pk)
 
 	// Auth stuff
 	qaAllFakeReq, _ := http.NewRequest("GET", "/api/v1/qa/all", nil)
@@ -183,7 +183,7 @@ func TestAPIRoutes(t *testing.T) {
 		X_AUTH_SIG:    qaAllFakeReq.Header.Get(X_AUTH_SIG),
 	}
 
-	log.Println("qaAllHeader", qaAllHeader)
+	t.Log("qaAllHeader", qaAllHeader)
 
 	etps := []EndpointTestPath{
 

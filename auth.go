@@ -283,11 +283,11 @@ func stripAllWhitespace(s string) string {
 func normalizeURI(url *url.URL) string {
 	// NormalizedURI:all lowercase, strip all anchors (#loc), strip all parameters, strip any trailing /
 	baseURI := url.RequestURI()
-	log.Println("baseURI", baseURI)
+	// log.Println("baseURI", baseURI)
 	strippedURI := strings.Split(baseURI, "?")[0]
 	normalizedURI := strings.ToLower(strippedURI)
 	normalizedURI = strings.TrimRight(normalizedURI, "/")
-	log.Println("normalizedURI", normalizedURI)
+	// log.Println("normalizedURI", normalizedURI)
 	return normalizedURI
 }
 func normalizeQuery(url *url.URL) string {
@@ -358,14 +358,14 @@ func validateSignature(secretKey, method string, requestURL *url.URL, header htt
 	signingKeyHMAC := hmac.New(sha512.New, signingKey)
 	signingKeyHMAC.Write([]byte(stringToSign))
 	expectedMAC := signingKeyHMAC.Sum(nil)
-	log.Println("signingKey", base64.StdEncoding.EncodeToString(signingKey))
-	log.Println("stringToSign", stringToSign)
-	log.Println("stringToSign len", len([]byte(stringToSign)))
-	log.Printf("stringToSign data % x", ([]byte(stringToSign)))
-	log.Println("clientReqSig", clientReqSig)
-	log.Println("clientReqSig", base64.URLEncoding.EncodeToString(clientReqSig))
-	log.Println("expectedMAC", expectedMAC)
-	log.Println("expectedMAC", base64.URLEncoding.EncodeToString(expectedMAC))
+	// log.Println("signingKey", base64.StdEncoding.EncodeToString(signingKey))
+	// log.Println("stringToSign", stringToSign)
+	// log.Println("stringToSign len", len([]byte(stringToSign)))
+	// log.Printf("stringToSign data % x", ([]byte(stringToSign)))
+	// log.Println("clientReqSig", clientReqSig)
+	// log.Println("clientReqSig", base64.URLEncoding.EncodeToString(clientReqSig))
+	// log.Println("expectedMAC", expectedMAC)
+	// log.Println("expectedMAC", base64.URLEncoding.EncodeToString(expectedMAC))
 	if hmac.Equal(clientReqSig, expectedMAC) {
 		return 0
 	} else {

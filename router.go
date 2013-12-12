@@ -269,8 +269,8 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// 3. lookup the handler method
 	routePtr, err := getRoute(router.RouteMap, req.Method, endpoint.VersionStr, endpoint.EntityName, endpoint.Action)
 	if err != nil || routePtr == nil {
-		log.Println("404 routekey", routeKey(req.Method, endpoint.VersionStr, endpoint.EntityName, endpoint.Action))
-		log.Printf("404 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
+		// log.Println("404 routekey", routeKey(req.Method, endpoint.VersionStr, endpoint.EntityName, endpoint.Action))
+		// log.Printf("404 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
 		// http.NotFound(w, req)
 		ctx.SendErrorPayload(http.StatusNotFound, NotFoundErrNo, "404 Not Found")
 		return
@@ -283,7 +283,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// 4. Some basic validation
 
 	if req.Method == "POST" && endpoint.PrimaryKey != 0 && len(endpoint.Extras) == 1 {
-		log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
+		// log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
 		// don't use http.Error!  use our sendErrorPayload instead
 		// http.Error(w, BadRequestExtraneousPrimaryKeyPrefix, http.StatusBadRequest)
 		ctx.SendErrorPayload(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix)
@@ -291,7 +291,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	// Read and update require primary key
 	if (req.Method == "GET" || req.Method == "PATCH" || req.Method == "PUT") && endpoint.PrimaryKey == 0 && len(endpoint.Extras) == 0 {
-		log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
+		// log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
 		ctx.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix)
 		return
 	}
