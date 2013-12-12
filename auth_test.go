@@ -28,16 +28,16 @@ import (
 func TestValidateSignature(t *testing.T) {
 	requestURL, _ := url.Parse("http://example.com/search?q=what&z=z")
 
-	encodedSig := "TEbv2Je9RfmYSxRjUJEEgoTsWwUPmw301N06ZqO7WS_8tL2IfKASeOEOWKidppUeEsv6VhA-RuaoTFapJu4HTw=="
+	encodedSig := "vUy2ayGdzHO6mckJtlIYGaoZdNLrU9T0UumB82C9PDZQFeszWWhyh06PLbwSNmHC7ckmU87uvlF98dDBrKCafA=="
 	header := http.Header{
-		"X-Auth-Date":   []string{"abc"},
+		"X-Auth-Date":   []string{"20131212T022817Z"},
 		"X-Auth-Pub":    []string{"abc"},
 		"X-Auth-Sig":    []string{encodedSig},
 		"X-Auth-Scheme": []string{SCHEME_VERSION_1},
 	}
-	isValid := validateSignature("secretKey", "GET", requestURL, header)
-	if isValid == false {
-		t.Error("Expected valid signature")
+	validationError := validateSignature("secretKey", "GET", requestURL, header)
+	if validationError != 0 {
+		t.Error("Expected valid signature, expected validationError == 0, got", validationError)
 	}
 }
 
@@ -173,12 +173,17 @@ func TestAPIRoutes(t *testing.T) {
 	log.Println("pk", pk)
 
 	// Auth stuff
+	qaAllFakeReq, _ := http.NewRequest("GET", "/api/v1/qa/all", nil)
+	SignRequest(qaAllFakeReq, "abc", "cba")
+
 	qaAllHeader := map[string]string{
 		X_AUTH_SCHEME: SCHEME_VERSION_1,
-		X_AUTH_DATE:   "abc",
+		X_AUTH_DATE:   qaAllFakeReq.Header.Get(X_AUTH_DATE),
 		X_AUTH_PUB:    "abc",
-		X_AUTH_SIG:    "yo482lqxi_r5XBI9WLtFdVi16SdzNBfQthNkUQjqr8G5yNNGBxY-yDIZqHEGbjh5sxcPjaB2-tbIBNWbWMvf1g==",
+		X_AUTH_SIG:    qaAllFakeReq.Header.Get(X_AUTH_SIG),
 	}
+
+	log.Println("qaAllHeader", qaAllHeader)
 
 	etps := []EndpointTestPath{
 
@@ -200,7 +205,7 @@ func TestAPIRoutes(t *testing.T) {
 		EndpointTestPath{"POST", noHeaders, "/api/v1/auth/login", loginBadPassPayload, http.StatusForbidden, 5296511999, 0, nil},
 
 		// READ
-		EndpointTestPath{"GET", noHeaders, "/api/v1/qa/all", "", http.StatusForbidden, 1444855534, 0, nil},
+		EndpointTestPath{"GET", noHeaders, "/api/v1/qa/all", "", http.StatusForbidden, 3756220698, 0, nil},
 		EndpointTestPath{"GET", qaAllHeader, "/api/v1/qa/all", "", http.StatusOK, 0, 1, nil},
 		// EndpointTestPath{"GET", "/api/v2341/account/" + pk, "", http.StatusNotFound, NotFoundErrNo, 0, nil},
 		// EndpointTestPath{"GET", "/api/v1/account/", "", http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, 0, nil},

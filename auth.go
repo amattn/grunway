@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -226,10 +225,35 @@ func (authController *AuthController) PostHandlerV1Logout(c *Context) {
 //
 
 func performAuth(routePtr *Route, ctx *Context) (authenticationWasSucessful bool, failureToAuthErrorNum int) {
+
+	// Verify date is not too old or too far in the future
+	reqDates := ctx.R.Header[X_AUTH_DATE]
+	// There should be only 1!
+	if len(reqDates) != 1 {
+		return false, 3756220698
+	}
+	// reqDate := reqDates[0]
+
+	// TODO: for now, disable clock checking...
+	// We cannot yet guaruntee the client has an accurate clock.
+	// There are workarounds, like having the client ping the server for time and storing a diff, but save that for later
+
+	// reqTime, err := time.Parse(AUTH_DATE_TIME_FORMAT, clientReqDate)
+	// if err != nil {
+	// 	return false, 3103849110
+	// }
+	// timediff := time.Now().Sub(reqTime)
+	// // arbitrary threshold... try to take into account longish response times for mobile devices...
+	// if math.Abs(timediff.Seconds()) > 600 {
+	// 	log.Println("req too old or too far in the future", timediff.Seconds())
+	// 	return 3422808969
+	// }
+
+	// get valid key
 	publicKeys := ctx.R.Header[X_AUTH_PUB]
 	// There should be only 1!
 	if len(publicKeys) != 1 {
-		return false, 1444855534
+		return false, 3444855534
 	}
 	publicKey := publicKeys[0]
 
@@ -285,18 +309,11 @@ func validateSignature(secretKey, method string, requestURL *url.URL, header htt
 		}
 	}
 	clientReqDate := (header[X_AUTH_DATE][0])
-	reqTime, err := time.Parse(AUTH_DATE_TIME_FORMAT, clientReqDate)
+	_, err := time.Parse(AUTH_DATE_TIME_FORMAT, clientReqDate)
 	if err != nil {
 		// log.Println(cannot parse time)
 		// log.Println("err", err)
 		return 32601111
-	} else {
-		timediff := time.Now().Sub(reqTime)
-		// arbitrary threshold... try to take into account longish response times for mobile devices...
-		if math.Abs(timediff.Seconds()) > 600 {
-			// log.Println(req too old)
-			return 32601112
-		}
 	}
 
 	// TODO validate that this is a parseable date?
@@ -341,9 +358,9 @@ func validateSignature(secretKey, method string, requestURL *url.URL, header htt
 	expectedMAC := signingKeyHMAC.Sum(nil)
 	// log.Println("signingKey", base64.URLEncoding.EncodeToString(signingKey))
 	// log.Println("stringToSign", stringToSign)
-	// log.Println("clientReqSig", clientReqSig)
-	// log.Println("expectedMAC", expectedMAC)
-	// log.Println("expectedMAC", base64.URLEncoding.EncodeToString(expectedMAC))
+	log.Println("clientReqSig", clientReqSig)
+	log.Println("expectedMAC", expectedMAC)
+	log.Println("expectedMAC", base64.URLEncoding.EncodeToString(expectedMAC))
 	if hmac.Equal(clientReqSig, expectedMAC) {
 		return 0
 	} else {
@@ -363,6 +380,7 @@ func validateSignature(secretKey, method string, requestURL *url.URL, header htt
 // typically used for testing
 func SignRequest(req *http.Request, publicKey, secretKey string) {
 	now := time.Now()
+	now = now.In(time.UTC)
 	dateStr := now.Format(AUTH_DATE_TIME_FORMAT)
 	req.Header.Add(X_AUTH_DATE, dateStr)
 	req.Header.Add(X_AUTH_PUB, publicKey)
