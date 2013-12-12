@@ -12,12 +12,17 @@ type Context struct {
 	w http.ResponseWriter
 	E Endpoint
 
+	// router
+	router *Router
+
 	// only populated after auth
 	PublicKey string // for Auth'd requests, will be set to public key if Auth was successful, "" otherwise
 
+	// generic maps for middleware to stuff arbitrary data
 	middleware map[string]interface{}
+	postware   map[string]interface{}
 
-	// only populated after handler
+	// only populated after a write
 	written       bool
 	StatusCode    int
 	ContentLength int

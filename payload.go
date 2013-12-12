@@ -54,7 +54,7 @@ func wrapAndSendPayloadList(ctx *Context, payloadList []interface{}) {
 
 	payloadWrapper.PayloadType = payloadType
 	payloadWrapper.PayloadList = payloadList
-	sendPayloadWrapper(ctx, http.StatusOK, payloadWrapper)
+	writePayloadWrapper(ctx, http.StatusOK, payloadWrapper)
 }
 
 // Error or alerts
@@ -74,16 +74,17 @@ func sendErrorPayload(ctx *Context, code int, errNo int64, errStr, alert string)
 		ctx.Add("X-Alert", fmt.Sprintf("%s", alert))
 	}
 
-	sendPayloadWrapper(ctx, code, payloadWrapper)
+	writePayloadWrapper(ctx, code, payloadWrapper)
 }
 
 // Ok payloadWrapper is just a json dict w/ one kv: ErrNo == 0
 func sendOkPayload(ctx *Context) {
 	payloadWrapper := NewPayloadWrapper()
-	sendPayloadWrapper(ctx, http.StatusOK, payloadWrapper)
+	writePayloadWrapper(ctx, http.StatusOK, payloadWrapper)
 }
 
-func sendPayloadWrapper(ctx *Context, code int, payloadWrapper *PayloadWrapper) {
+// All output goes through here.
+func writePayloadWrapper(ctx *Context, code int, payloadWrapper *PayloadWrapper) {
 	if ctx.written == true {
 		derr := deeperror.New(3314606687, "ERROR attempt to write multiple times to same writer", nil)
 		log.Println(derr)
@@ -127,5 +128,9 @@ func sendPayloadWrapper(ctx *Context, code int, payloadWrapper *PayloadWrapper) 
 			}
 			ctx.ContentLength = bytesWritten
 		}
+	}
+
+	for _, postproc := range ctx.router.PostProcessors {
+		postproc.Process(ctx)
 	}
 }

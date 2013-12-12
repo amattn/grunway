@@ -6,9 +6,7 @@ import (
 	"net/http"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/amattn/deeperror"
 )
@@ -39,7 +37,8 @@ type AuthenticatingPayloadController interface {
 type Router struct {
 	BasePath string
 
-	PrehandleProcessors []PrehandleProcessor
+	MiddlewareProcessors []MiddlewareProcessor
+	PostProcessors       []PostProcessor
 
 	Controllers map[string]PayloadController // key is entity name
 	RouteMap    map[string]*Route            // key is entity name
@@ -51,6 +50,11 @@ func NewRouter() *Router {
 
 	router.Controllers = make(map[string]PayloadController)
 	router.RouteMap = make(map[string]*Route)
+
+	router.MiddlewareProcessors = []MiddlewareProcessor{}
+	router.PostProcessors = []PostProcessor{
+		new(CommonLogger),
+	}
 	return router
 }
 
@@ -234,17 +238,22 @@ func (router *Router) AllRoutesSummary() string {
 // 5. Auth (if necessary)
 // 6. Middleware
 // 7. call handler method
-// 8. any post-handler stuff (logging, etc.)
+
+// all writes to the responseWriter are done through writePayloadWrapper.
+
+// any post handler stuff should be called in writePayloadWrapper
+
 func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// 1. Any pre-handler stuff
 	// TODO
 
-	// 2. parse the route
-	endpoint, clientDeepErr, serverDeepErr := parsePath(req.URL, router.BasePath)
-
 	ctx := new(Context) // needs a leakybucket
 	ctx.w = w
 	ctx.R = req
+	ctx.router = router
+
+	// 2. parse the route
+	endpoint, clientDeepErr, serverDeepErr := parsePath(req.URL, router.BasePath)
 	ctx.E = endpoint
 
 	if clientDeepErr != nil {
@@ -268,32 +277,37 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	router.handleContext(ctx, req)
+}
+
+func (router *Router) handleContext(ctx *Context, req *http.Request) {
+
 	// 3. lookup the handler method
-	routePtr, err := getRoute(router.RouteMap, req.Method, endpoint.VersionStr, endpoint.EntityName, endpoint.Action)
+	routePtr, err := getRoute(router.RouteMap, req.Method, ctx.E.VersionStr, ctx.E.EntityName, ctx.E.Action)
 	if err != nil || routePtr == nil {
-		// log.Println("404 routekey", routeKey(req.Method, endpoint.VersionStr, endpoint.EntityName, endpoint.Action))
-		// log.Printf("404 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
+		// log.Println("404 routekey", routeKey(req.Method, ctx.E.VersionStr, ctx.E.EntityName, ctx.E.Action))
+		// log.Printf("404 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, ctx.E, routePtr, err)
 		// http.NotFound(w, req)
 		ctx.SendErrorPayload(http.StatusNotFound, NotFoundErrNo, "404 Not Found")
 		return
 	}
 
 	// log.Println("req.Method", req.Method)
-	// log.Println("endpoint.PrimaryKey", endpoint.PrimaryKey)
-	// log.Println("endpoint.Extras", endpoint.Extras)
+	// log.Println("ctx.E.PrimaryKey", ctx.E.PrimaryKey)
+	// log.Println("ctx.E.Extras", ctx.E.Extras)
 
 	// 4. Some basic validation
 
-	if req.Method == "POST" && endpoint.PrimaryKey != 0 && len(endpoint.Extras) == 1 {
-		// log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
+	if req.Method == "POST" && ctx.E.PrimaryKey != 0 && len(ctx.E.Extras) == 1 {
+		// log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, ctx.E, routePtr, err)
 		// don't use http.Error!  use our sendErrorPayload instead
 		// http.Error(w, BadRequestExtraneousPrimaryKeyPrefix, http.StatusBadRequest)
 		ctx.SendErrorPayload(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix)
 		return
 	}
 	// Read and update require primary key
-	if (req.Method == "GET" || req.Method == "PATCH" || req.Method == "PUT") && endpoint.PrimaryKey == 0 && len(endpoint.Extras) == 0 {
-		// log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
+	if (req.Method == "GET" || req.Method == "PATCH" || req.Method == "PUT") && ctx.E.PrimaryKey == 0 && len(ctx.E.Extras) == 0 {
+		// log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, ctx.E, routePtr, err)
 		ctx.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix)
 		return
 	}
@@ -311,7 +325,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// 6. Middleware
 
-	for _, middleware := range router.PrehandleProcessors {
+	for _, middleware := range router.MiddlewareProcessors {
 		middleware.Process(routePtr, ctx)
 	}
 
@@ -320,34 +334,8 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	routePtr.Handler(ctx)
 
 	// 8. any post-handler stuff
-	// logging
-	commonLogFormat(ctx)
 
 	// TODO
-}
-
-func commonLogFormat(ctx *Context) {
-	// http://en.wikipedia.org/wiki/Common_Log_Format
-	// example 127.0.0.1 user-identifier frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326
-
-	user := "-"
-	if ctx.R.URL.User != nil {
-		user = ctx.R.URL.User.Username()
-	}
-	common_log_format_parts := []string{
-		ctx.R.RemoteAddr,
-		"-",
-		user,
-		time.Now().Format("[02/Jan/2006:15:04:05 -0700]"),
-		`"` + ctx.R.Method,
-		ctx.R.URL.RequestURI(),
-		ctx.R.Proto + `"`,
-		strconv.FormatInt(int64(ctx.StatusCode), 10),
-		strconv.FormatInt(int64(ctx.ContentLength), 10),
-		"\n",
-	}
-	fmt.Print(strings.Join(common_log_format_parts, " "))
-
 }
 
 // RouteMap helpers
