@@ -28,6 +28,7 @@ const (
 
 type PayloadController interface {
 }
+
 type AuthenticatingPayloadController interface {
 	PayloadController
 	GetSecretKey(publicKey string) (secretKey string, errNum int)
@@ -35,6 +36,8 @@ type AuthenticatingPayloadController interface {
 
 type Router struct {
 	BasePath string
+
+	PrehandleProcessors []PrehandleProcessor
 
 	Controllers map[string]PayloadController // key is entity name
 	RouteMap    map[string]*Route            // key is entity name
@@ -227,8 +230,9 @@ func (router *Router) AllRoutesSummary() string {
 // 3. lookup route
 // 4. validate/auth route
 // 5. Auth (if necessary)
-// 6. call handler method
-// 7. any post-handler stuff (logging, etc.)
+// 6. Middleware
+// 7. call handler method
+// 8. any post-handler stuff (logging, etc.)
 func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// 1. Any pre-handler stuff
 	// TODO
@@ -236,10 +240,10 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// 2. parse the route
 	endpoint, clientDeepErr, serverDeepErr := parsePath(req.URL, router.BasePath)
 
-	ctxPtr := new(Context) // needs a leakybucket
-	ctxPtr.w = w
-	ctxPtr.R = req
-	ctxPtr.E = endpoint
+	ctx := new(Context) // needs a leakybucket
+	ctx.w = w
+	ctx.R = req
+	ctx.E = endpoint
 
 	if clientDeepErr != nil {
 		// log.Println("clientDeepErr", clientDeepErr)
@@ -247,7 +251,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if clientDeepErr.StatusCode > 299 && clientDeepErr.StatusCode < 999 {
 			code = clientDeepErr.StatusCode
 		}
-		ctxPtr.SendErrorPayload(code, clientDeepErr.Num, fmt.Sprintf("%d %s (err code: %d)", code, BadRequestSyntaxErrorPrefix, clientDeepErr.Num))
+		ctx.SendErrorPayload(code, clientDeepErr.Num, fmt.Sprintf("%d %s (err code: %d)", code, BadRequestSyntaxErrorPrefix, clientDeepErr.Num))
 		// log.Println("clientDeepErr.Num", clientDeepErr.Num)
 		return
 	}
@@ -258,7 +262,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if serverDeepErr.StatusCode > 299 && serverDeepErr.StatusCode < 999 {
 			code = serverDeepErr.StatusCode
 		}
-		ctxPtr.SendErrorPayload(code, serverDeepErr.Num, fmt.Sprintf("%d %s (err code: %d)", code, InternalServerErrorPrefix, serverDeepErr.Num))
+		ctx.SendErrorPayload(code, serverDeepErr.Num, fmt.Sprintf("%d %s (err code: %d)", code, InternalServerErrorPrefix, serverDeepErr.Num))
 		return
 	}
 
@@ -268,7 +272,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		log.Println("404 routekey", routeKey(req.Method, endpoint.VersionStr, endpoint.EntityName, endpoint.Action))
 		log.Printf("404 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
 		// http.NotFound(w, req)
-		ctxPtr.SendErrorPayload(http.StatusNotFound, NotFoundErrNo, "404 Not Found")
+		ctx.SendErrorPayload(http.StatusNotFound, NotFoundErrNo, "404 Not Found")
 		return
 	}
 
@@ -282,32 +286,38 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
 		// don't use http.Error!  use our sendErrorPayload instead
 		// http.Error(w, BadRequestExtraneousPrimaryKeyPrefix, http.StatusBadRequest)
-		ctxPtr.SendErrorPayload(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix)
+		ctx.SendErrorPayload(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix)
 		return
 	}
 	// Read and update require primary key
 	if (req.Method == "GET" || req.Method == "PATCH" || req.Method == "PUT") && endpoint.PrimaryKey == 0 && len(endpoint.Extras) == 0 {
 		log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, endpoint, routePtr, err)
-		ctxPtr.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix)
+		ctx.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix)
 		return
 	}
 
 	// 5. Auth
 
 	if routePtr.RequiresAuth {
-		log.Println("RequiresAuth = true")
-		isAuthorized, failureToAuthErrorNum := performAuth(routePtr, ctxPtr)
+		// log.Println("RequiresAuth = true")
+		isAuthorized, failureToAuthErrorNum := performAuth(routePtr, ctx)
 		if isAuthorized == false {
-			ctxPtr.SendErrorPayload(http.StatusForbidden, int64(failureToAuthErrorNum), "Forbidden")
+			ctx.SendErrorPayload(http.StatusForbidden, int64(failureToAuthErrorNum), "Forbidden")
 			return
 		}
 	}
 
-	// 6. call handler method
+	// 6. Middleware
 
-	routePtr.Handler(ctxPtr)
+	for _, middleware := range router.PrehandleProcessors {
+		middleware.Process(routePtr, ctx)
+	}
 
-	// 7. any post-handler stuff
+	// 7. call handler method
+
+	routePtr.Handler(ctx)
+
+	// 8. any post-handler stuff
 
 	// TODO
 }
