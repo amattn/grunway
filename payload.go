@@ -94,16 +94,17 @@ func sendPayloadWrapper(ctx *Context, code int, payloadWrapper *PayloadWrapper) 
 
 	ctx.Add("Content-Type", "application/json")
 
-	if code != http.StatusOK {
-		if rw, isResponseWriter := ctx.w.(http.ResponseWriter); isResponseWriter {
-			rw.WriteHeader(code)
-		}
-	}
+	// This is the old way.  it doesn't give us status info.
+	// enc := json.NewEncoder(ctx.w)
+	// jsonErr := enc.Encode(payloadWrapper)
 
-	enc := json.NewEncoder(ctx.w)
-	jsonErr := enc.Encode(payloadWrapper)
+	// two ways to get status info, a counting buffer or just encode to bytes first.
+	// counting buffer is more efficient, but I don't need the docs to implement the eoncode to bytes.
+	// consider a counting buffer if memory usage or garbage collection pauses start hurting.
+
+	jsonBytes, jsonErr := json.Marshal(payloadWrapper)
+
 	if jsonErr != nil {
-
 		derr := deeperror.NewHTTPError(3589720731, "Unexpeced error encoding json", jsonErr, http.StatusInternalServerError)
 		responseWriter, ok := ctx.w.(http.ResponseWriter)
 		if ok {
@@ -111,5 +112,20 @@ func sendPayloadWrapper(ctx *Context, code int, payloadWrapper *PayloadWrapper) 
 			http.Error(responseWriter, errStr, derr.StatusCode)
 		}
 		log.Println(derr)
+	} else {
+		// At this point, everything is a-ok...  just write out.
+		if rw, isResponseWriter := ctx.w.(http.ResponseWriter); isResponseWriter {
+			if code != http.StatusOK {
+				rw.WriteHeader(code)
+				ctx.StatusCode = code
+			} else {
+				ctx.StatusCode = http.StatusOK
+			}
+			bytesWritten, err := rw.Write(jsonBytes)
+			if err != nil {
+				log.Println("3952513088 WRITE ERROR", err)
+			}
+			ctx.ContentLength = bytesWritten
+		}
 	}
 }

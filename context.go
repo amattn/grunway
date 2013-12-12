@@ -8,14 +8,19 @@ import (
 )
 
 type Context struct {
-	w       http.ResponseWriter
-	written bool
-	R       *http.Request
-	E       Endpoint
+	R *http.Request
+	w http.ResponseWriter
+	E Endpoint
 
+	// only populated after auth
 	PublicKey string // for Auth'd requests, will be set to public key if Auth was successful, "" otherwise
 
 	middleware map[string]interface{}
+
+	// only populated after handler
+	written       bool
+	StatusCode    int
+	ContentLength int
 }
 
 func (c *Context) Add(key, value string) {
