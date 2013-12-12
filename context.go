@@ -8,34 +8,51 @@ import (
 )
 
 type Context struct {
-	W         http.ResponseWriter
-	R         *http.Request
-	E         Endpoint
+	w       http.ResponseWriter
+	written bool
+	R       *http.Request
+	E       Endpoint
+
 	PublicKey string // for Auth'd requests, will be set to public key if Auth was successful, "" otherwise
+
+	middleware map[string]interface{}
+}
+
+func (c *Context) Add(key, value string) {
+	c.w.Header().Add(key, value)
+}
+func (c *Context) Del(key string) {
+	c.w.Header().Del(key)
+}
+func (c *Context) Get(key string) string {
+	return c.w.Header().Get(key)
+}
+func (c *Context) Set(key, value string) {
+	c.w.Header().Set(key, value)
 }
 
 func (c *Context) WrapAndSendPayload(payload interface{}) {
-	wrapAndSendPayload(c.W, payload)
+	wrapAndSendPayload(c, payload)
 }
 
 // for a slice of Entities
 func (c *Context) WrapAndSendPayloadList(payloadList []interface{}) {
-	wrapAndSendPayloadList(c.W, payloadList)
+	wrapAndSendPayloadList(c, payloadList)
 }
 
 // Error
 func (c *Context) SendErrorPayload(code int, errNo int64, errStr string) {
-	sendErrorPayload(c.W, code, errNo, errStr, "")
+	sendErrorPayload(c, code, errNo, errStr, "")
 }
 
 // Alert payloads are designed as a general notification service for clients (ie client must upgrade, server is in maint mode, etc.)
 func (c *Context) SendAlertPayload(code int, errNo int64, errStr, alert string) {
-	sendErrorPayload(c.W, code, errNo, errStr, alert)
+	sendErrorPayload(c, code, errNo, errStr, alert)
 }
 
 // Ok payload is just a json dict w/ one kv: errNo == 0
 func (c *Context) SendOkPayload() {
-	sendOkPayload(c.W)
+	sendOkPayload(c)
 }
 
 func (c *Context) DecodeResponseBodyOrSendError(pc PayloadController, payloadReference interface{}) interface{} {

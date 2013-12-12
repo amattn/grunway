@@ -237,7 +237,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	endpoint, clientDeepErr, serverDeepErr := parsePath(req.URL, router.BasePath)
 
 	ctxPtr := new(Context) // needs a leakybucket
-	ctxPtr.W = w
+	ctxPtr.w = w
 	ctxPtr.R = req
 	ctxPtr.E = endpoint
 

@@ -154,12 +154,13 @@ func (authController *AuthController) PostHandlerV1Login(c *Context) {
 	// Check our assumptions
 	if authController.AS == nil {
 		c.SendErrorPayload(http.StatusInternalServerError, 3256219140, "If you see this, we broke something fierce and we are very sorry.  Please report.")
+		return
 	}
 
 	// Get the request
 	requestBody := c.R.Body
 	if requestBody == nil {
-		http.Error(c.W, "400 Bad Request: Expected non-empty body", http.StatusBadRequest)
+		c.SendErrorPayload(http.StatusBadRequest, 3775590199, "400 Bad Request: Expected non-empty body")
 		return
 	}
 	defer requestBody.Close()

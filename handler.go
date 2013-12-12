@@ -18,7 +18,7 @@ func StandardCreateHandler(controller CreatePerformer, c *Context, createRequest
 	// Get the request
 	requestBody := c.R.Body
 	if requestBody == nil {
-		http.Error(c.W, "400 Bad Request: Expected non-empty body", http.StatusBadRequest)
+		c.SendErrorPayload(http.StatusBadRequest, 3370318075, BadRequestPrefix+"Expected non-empty body")
 		return
 	}
 	defer requestBody.Close()
@@ -34,7 +34,7 @@ func StandardCreateHandler(controller CreatePerformer, c *Context, createRequest
 
 	if err != nil {
 		errStr := BadRequestPrefix + ": Cannot parse body"
-		c.SendErrorPayload(http.StatusBadRequest, 1540227685, errStr)
+		c.SendErrorPayload(http.StatusBadRequest, 3540227685, errStr)
 		return
 	}
 
@@ -87,7 +87,7 @@ func StandardUpdateHandler(controller UpdatePerformer, c *Context, updateRequest
 	// Get the request
 	requestBody := c.R.Body
 	if requestBody == nil {
-		http.Error(c.W, "400 Bad Request: Expected non-empty body", http.StatusBadRequest)
+		c.SendErrorPayload(http.StatusBadRequest, 3851489100, BadRequestPrefix+"Expected non-empty body")
 		return
 	}
 	defer requestBody.Close()

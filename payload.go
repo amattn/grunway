@@ -3,7 +3,6 @@ package grunway
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 
@@ -30,12 +29,12 @@ func NewPayloadWrapper() *PayloadWrapper {
 }
 
 // for a single Enitity
-func wrapAndSendPayload(w io.Writer, payload interface{}) {
-	wrapAndSendPayloadList(w, []interface{}{payload})
+func wrapAndSendPayload(ctx *Context, payload interface{}) {
+	wrapAndSendPayloadList(ctx, []interface{}{payload})
 }
 
 // for a slice of Entities
-func wrapAndSendPayloadList(w io.Writer, payloadList []interface{}) {
+func wrapAndSendPayloadList(ctx *Context, payloadList []interface{}) {
 	payloadWrapper := NewPayloadWrapper()
 
 	var payloadType string
@@ -55,55 +54,58 @@ func wrapAndSendPayloadList(w io.Writer, payloadList []interface{}) {
 
 	payloadWrapper.PayloadType = payloadType
 	payloadWrapper.PayloadList = payloadList
-	sendPayloadWrapper(w, http.StatusOK, payloadWrapper)
+	sendPayloadWrapper(ctx, http.StatusOK, payloadWrapper)
 }
 
 // Error or alerts
-func sendErrorPayload(w io.Writer, code int, errNo int64, errStr, alert string) {
+func sendErrorPayload(ctx *Context, code int, errNo int64, errStr, alert string) {
 	payloadWrapper := NewPayloadWrapper()
 	payloadWrapper.ErrNo = errNo
 	payloadWrapper.ErrStr = errStr
 	payloadWrapper.Alert = alert
 
-	if rw, isResponseWriter := w.(http.ResponseWriter); isResponseWriter {
-		header := rw.Header()
-		if errNo != 0 {
-			header.Add("X-ErrorNum", fmt.Sprintf("%d", errNo))
-		}
-		if len(errStr) > 1 {
-			header.Add("X-ErrorStr", fmt.Sprintf("%s", errStr))
-		}
-		if len(alert) > 1 {
-			header.Add("X-Alert", fmt.Sprintf("%s", alert))
-		}
+	if errNo != 0 {
+		ctx.Add("X-ErrorNum", fmt.Sprintf("%d", errNo))
+	}
+	if len(errStr) > 1 {
+		ctx.Add("X-ErrorStr", fmt.Sprintf("%s", errStr))
+	}
+	if len(alert) > 1 {
+		ctx.Add("X-Alert", fmt.Sprintf("%s", alert))
 	}
 
-	sendPayloadWrapper(w, code, payloadWrapper)
+	sendPayloadWrapper(ctx, code, payloadWrapper)
 }
 
 // Ok payloadWrapper is just a json dict w/ one kv: ErrNo == 0
-func sendOkPayload(w io.Writer) {
+func sendOkPayload(ctx *Context) {
 	payloadWrapper := NewPayloadWrapper()
-	sendPayloadWrapper(w, http.StatusOK, payloadWrapper)
+	sendPayloadWrapper(ctx, http.StatusOK, payloadWrapper)
 }
 
-func sendPayloadWrapper(w io.Writer, code int, payloadWrapper *PayloadWrapper) {
-	if rw, isResponseWriter := w.(http.ResponseWriter); isResponseWriter {
-		rw.Header().Add("Content-Type", "application/json")
+func sendPayloadWrapper(ctx *Context, code int, payloadWrapper *PayloadWrapper) {
+	if ctx.written == true {
+		derr := deeperror.New(3314606687, "ERROR attempt to write multiple times to same writer", nil)
+		log.Println(derr)
+		return
 	}
 
+	ctx.written = true
+
+	ctx.Add("Content-Type", "application/json")
+
 	if code != http.StatusOK {
-		if rw, isResponseWriter := w.(http.ResponseWriter); isResponseWriter {
+		if rw, isResponseWriter := ctx.w.(http.ResponseWriter); isResponseWriter {
 			rw.WriteHeader(code)
 		}
 	}
 
-	enc := json.NewEncoder(w)
+	enc := json.NewEncoder(ctx.w)
 	jsonErr := enc.Encode(payloadWrapper)
 	if jsonErr != nil {
 
-		derr := deeperror.NewHTTPError(1589720731, "Unexpeced error encoding json", jsonErr, http.StatusInternalServerError)
-		responseWriter, ok := w.(http.ResponseWriter)
+		derr := deeperror.NewHTTPError(3589720731, "Unexpeced error encoding json", jsonErr, http.StatusInternalServerError)
+		responseWriter, ok := ctx.w.(http.ResponseWriter)
 		if ok {
 			errStr := fmt.Sprintln(derr.Num, derr.EndUserMsg)
 			http.Error(responseWriter, errStr, derr.StatusCode)
