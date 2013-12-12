@@ -83,33 +83,14 @@ func (store *PostgresAccountStore) Startup(attribs string) error {
 
 	fieldsClause := "pkey, name, email, passhash, publickey, secretkey, lastlogin, created, modified"
 
-	var query string
-	// store.createAccountStmt, err = db.Prepare("INSERT INTO accounts(email, passhash) VALUES($1, $2)")
-	query = "INSERT INTO accounts(name, email, passhash) VALUES($1, $2, $3) RETURNING " + fieldsClause
-	store.createAccountStmt, err = db.Prepare(query)
-	if err != nil {
-		return deeperror.New(1136587312, "failure to prepare query:"+query, err)
+	queries := map[string]**sql.Stmt{
+		"INSERT INTO accounts(name, email, passhash) VALUES($1, $2, $3) RETURNING " + fieldsClause: &store.createAccountStmt,
+		"SELECT " + fieldsClause + " FROM accounts WHERE email = $1":                               &store.queryAccountByEmailStmt,
+		"SELECT " + fieldsClause + " FROM accounts WHERE publickey = $1":                           &store.queryAccountByPublicKeyStmt,
+		"UPDATE accounts SET lastlogin = now() WHERE pkey = $1 RETURNING " + fieldsClause:          &store.updateAccountLastLoginStmt,
 	}
 
-	query = "SELECT " + fieldsClause + " FROM accounts WHERE email = $1"
-	store.queryAccountByEmailStmt, err = db.Prepare(query)
-	if err != nil {
-		return deeperror.New(1136587313, "failure to prepare query:"+query, err)
-	}
-
-	query = "SELECT " + fieldsClause + " FROM accounts WHERE publickey = $1"
-	store.queryAccountByPublicKeyStmt, err = db.Prepare(query)
-	if err != nil {
-		return deeperror.New(1136587313, "failure to prepare query:"+query, err)
-	}
-
-	query = "UPDATE accounts SET lastlogin = now() WHERE pkey = $1 RETURNING " + fieldsClause
-	store.updateAccountLastLoginStmt, err = db.Prepare(query)
-	if err != nil {
-		return deeperror.New(1136587314, "failure to prepare query:"+query, err)
-	}
-
-	return nil
+	return PrepareStatements(store.DB, queries)
 }
 
 func (store *PostgresAccountStore) Shutdown() error {
