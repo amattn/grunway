@@ -50,7 +50,7 @@ func scanAccountRow(rowPtr *sql.Row) (*Account, *deeperror.DeepError) {
 		if err == sql.ErrNoRows {
 			derr := deeperror.New(3044022520, NotFoundPrefix, err)
 			derr.DebugMsg = "No rows returned"
-			return nil, derr
+			return nil, nil
 		} else {
 			derr := deeperror.New(3044022521, InternalServerErrorPrefix, err)
 			derr.DebugMsg = "Scan failure"

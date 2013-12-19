@@ -51,10 +51,14 @@ func StandardCreateHandler(controller CreatePerformer, c *Context, createRequest
 	// add entity to the model
 	didSucceed, derr, responsePayload := controller.PerformCreate(c, createRequestPayload)
 	if didSucceed == false {
-		if derr.StatusCode > 299 {
-			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
+		if derr != nil {
+			if derr.StatusCode > 299 {
+				c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
+			} else {
+				c.SendErrorPayload(http.StatusInternalServerError, derr.Num, InternalServerErrorPrefix)
+			}
 		} else {
-			c.SendErrorPayload(http.StatusInternalServerError, derr.Num, InternalServerErrorPrefix)
+			c.SendErrorPayload(http.StatusInternalServerError, 3249936084, InternalServerErrorPrefix)
 		}
 		return
 	}
