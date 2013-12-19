@@ -50,7 +50,7 @@ type AccountStore interface {
 
 type Account struct {
 	// System fields
-	Pkey int64 `meddler:"pkey,pk"`
+	PKey int64 `meddler:"pkey,pk"`
 
 	// User fields
 	Name      string `meddler:"name"`

@@ -129,7 +129,7 @@ func (authController *AccountController) PerformCreate(c *Context, createRequest
 	responsePld := NewAccountResponsePayload()
 	responsePld.Email = acct.Email
 	responsePld.Name = acct.Name
-	responsePld.Id = acct.Pkey
+	responsePld.Id = acct.PKey
 	responsePld.PublicKey = acct.PublicKey
 
 	return true, nil, responsePld

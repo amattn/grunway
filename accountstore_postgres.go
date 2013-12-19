@@ -35,7 +35,7 @@ type PostgresAccountStore struct {
 func scanAccountRow(rowPtr *sql.Row) (*Account, *deeperror.DeepError) {
 	acctPtr := new(Account)
 	err := rowPtr.Scan(
-		&(acctPtr.Pkey),
+		&(acctPtr.PKey),
 		&(acctPtr.Name),
 		&(acctPtr.Email),
 		&(acctPtr.Passhash),
@@ -274,7 +274,7 @@ func (store *PostgresAccountStore) Login(submittedEmail, submittedPassword strin
 		return nil, deeperror.New(3770650642, "Auth Failure", err)
 	}
 
-	acct, err = store.UpdateUserLastLogin(acct.Pkey)
+	acct, err = store.UpdateUserLastLogin(acct.PKey)
 	if err != nil {
 		return nil, deeperror.NewHTTPError(3770650643, "Auth Failure", err, http.StatusInternalServerError)
 	}
