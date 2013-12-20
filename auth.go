@@ -96,14 +96,14 @@ func (authController *AccountController) CreatePayloadIsValid(c *Context, create
 	return true, 0
 }
 
-func (authController *AccountController) PerformCreate(c *Context, createRequestPayload interface{}) (bool, *deeperror.DeepError, interface{}) {
+func (authController *AccountController) PerformCreate(c *Context, createRequestPayload interface{}) (interface{}, *deeperror.DeepError) {
 	requestPayloadPtr, isExpectedType := createRequestPayload.(*AccountCreateRequestPayload)
 	if isExpectedType == false {
-		return false, deeperror.NewHTTPError(3340732022, InternalServerErrorPrefix, nil, http.StatusInternalServerError), nil
+		return nil, deeperror.NewHTTPError(3340732022, InternalServerErrorPrefix, nil, http.StatusInternalServerError)
 	}
 
 	if authController.AS == nil {
-		return false, deeperror.NewHTTPError(3713900413, InternalServerErrorPrefix, nil, http.StatusInternalServerError), nil
+		return nil, deeperror.NewHTTPError(3713900413, InternalServerErrorPrefix, nil, http.StatusInternalServerError)
 	}
 
 	acct, err := authController.AS.CreateAccount(requestPayloadPtr.Name, requestPayloadPtr.Email, requestPayloadPtr.Password)
@@ -114,7 +114,7 @@ func (authController *AccountController) PerformCreate(c *Context, createRequest
 		if derr == nil {
 			if isAvail == false {
 				innerDerr := deeperror.NewHTTPError(300544903, "Could Not Create Account, Email address unavailable", derr, http.StatusConflict)
-				return false, innerDerr, nil
+				return nil, innerDerr
 			}
 		}
 
@@ -123,7 +123,7 @@ func (authController *AccountController) PerformCreate(c *Context, createRequest
 		derr = deeperror.New(300544904, "Could Not Create Account", err)
 		derr.DebugMsg = fmt.Sprintf("authController.cs.CreateApp failure creating from requestPayloadPtr %+v", requestPayloadPtr)
 
-		return false, derr, nil
+		return nil, derr
 	}
 
 	responsePld := NewAccountResponsePayload()
@@ -132,7 +132,7 @@ func (authController *AccountController) PerformCreate(c *Context, createRequest
 	responsePld.Id = acct.PKey
 	responsePld.PublicKey = acct.PublicKey
 
-	return true, nil, responsePld
+	return responsePld, nil
 }
 
 // #

@@ -8,7 +8,7 @@ import (
 )
 
 type CreatePerformer interface {
-	PerformCreate(c *Context, createRequestPayload interface{}) (didSucceed bool, derr *deeperror.DeepError, responsePayload interface{})
+	PerformCreate(c *Context, createRequestPayload interface{}) (responsePayload interface{}, derr *deeperror.DeepError)
 }
 type CreateValidator interface {
 	CreatePayloadIsValid(c *Context, createRequestPayload interface{}) (isValid bool, errNo int64)
@@ -49,16 +49,12 @@ func StandardCreateHandler(controller CreatePerformer, c *Context, createRequest
 	}
 
 	// add entity to the model
-	didSucceed, derr, responsePayload := controller.PerformCreate(c, createRequestPayload)
-	if didSucceed == false {
-		if derr != nil {
-			if derr.StatusCode > 299 {
-				c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
-			} else {
-				c.SendErrorPayload(http.StatusInternalServerError, derr.Num, InternalServerErrorPrefix)
-			}
+	responsePayload, derr := controller.PerformCreate(c, createRequestPayload)
+	if derr != nil {
+		if derr.StatusCode > 299 {
+			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
 		} else {
-			c.SendErrorPayload(http.StatusInternalServerError, 3249936084, InternalServerErrorPrefix)
+			c.SendErrorPayload(http.StatusInternalServerError, derr.Num, InternalServerErrorPrefix)
 		}
 		return
 	}
@@ -80,11 +76,14 @@ func StandardCreateHandler(controller CreatePerformer, c *Context, createRequest
 //  #####  #      #####  #    #   #   ######
 //
 
-type UpdatePerformer interface {
-	PerformUpdate(c *Context, updateRequestPayload interface{}) (didSucceed bool, errNo int64, responsePayload interface{})
-}
+// UpdateValidator is optional
 type UpdateValidator interface {
 	UpdatePayloadIsValid(c *Context, updateRequestPayload interface{}) (isValid bool, errNo int64)
+}
+
+// UpdatePerformer is required
+type UpdatePerformer interface {
+	PerformUpdate(c *Context, updateRequestPayload interface{}) (responsePayload interface{}, derr *deeperror.DeepError)
 }
 
 func StandardUpdateHandler(controller UpdatePerformer, c *Context, updateRequestPayload interface{}) {
@@ -117,9 +116,13 @@ func StandardUpdateHandler(controller UpdatePerformer, c *Context, updateRequest
 	}
 
 	// add entity to the model
-	didSucceed, errNo, responsePayload := controller.PerformUpdate(c, updateRequestPayload)
-	if didSucceed == false {
-		c.SendErrorPayload(http.StatusInternalServerError, errNo, InternalServerErrorPrefix)
+	responsePayload, derr := controller.PerformUpdate(c, updateRequestPayload)
+	if derr != nil {
+		if derr.StatusCode > 299 {
+			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
+		} else {
+			c.SendErrorPayload(http.StatusInternalServerError, derr.Num, InternalServerErrorPrefix)
+		}
 		return
 	}
 
