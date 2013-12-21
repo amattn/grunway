@@ -8,10 +8,8 @@ import (
 )
 
 type CreatePerformer interface {
+	CreatePayloadIsValid(c *Context, createRequestPayload interface{}) *deeperror.DeepError
 	PerformCreate(c *Context, createRequestPayload interface{}) (responsePayload interface{}, derr *deeperror.DeepError)
-}
-type CreateValidator interface {
-	CreatePayloadIsValid(c *Context, createRequestPayload interface{}) (isValid bool, errNo int64)
 }
 
 func StandardCreateHandler(controller CreatePerformer, c *Context, createRequestPayload interface{}) {
@@ -39,22 +37,24 @@ func StandardCreateHandler(controller CreatePerformer, c *Context, createRequest
 	}
 
 	// validate json
-	validator, isValidator := controller.(CreateValidator)
-	if isValidator {
-		isValid, errNo := validator.CreatePayloadIsValid(c, createRequestPayload)
-		if isValid == false {
-			c.SendErrorPayload(http.StatusBadRequest, errNo, BadRequestPrefix)
-			return
+	derr := controller.CreatePayloadIsValid(c, createRequestPayload)
+	if derr != nil {
+		// log.Println("CreatePayloadIsValid returned derr", derr)
+		if derr.StatusCodeIsDefaultValue() {
+			c.SendErrorPayload(http.StatusBadRequest, derr.Num, derr.EndUserMsg)
+		} else {
+			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
 		}
+		return
 	}
 
 	// add entity to the model
 	responsePayload, derr := controller.PerformCreate(c, createRequestPayload)
 	if derr != nil {
-		if derr.StatusCode > 299 {
-			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
+		if derr.StatusCodeIsDefaultValue() {
+			c.SendErrorPayload(http.StatusInternalServerError, derr.Num, derr.EndUserMsg)
 		} else {
-			c.SendErrorPayload(http.StatusInternalServerError, derr.Num, InternalServerErrorPrefix)
+			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
 		}
 		return
 	}
@@ -76,13 +76,8 @@ func StandardCreateHandler(controller CreatePerformer, c *Context, createRequest
 //  #####  #      #####  #    #   #   ######
 //
 
-// UpdateValidator is optional
-type UpdateValidator interface {
-	UpdatePayloadIsValid(c *Context, updateRequestPayload interface{}) (isValid bool, errNo int64)
-}
-
-// UpdatePerformer is required
 type UpdatePerformer interface {
+	UpdatePayloadIsValid(c *Context, updateRequestPayload interface{}) *deeperror.DeepError
 	PerformUpdate(c *Context, updateRequestPayload interface{}) (responsePayload interface{}, derr *deeperror.DeepError)
 }
 
@@ -106,22 +101,23 @@ func StandardUpdateHandler(controller UpdatePerformer, c *Context, updateRequest
 	}
 
 	// validate json
-	validator, isValidator := controller.(UpdateValidator)
-	if isValidator {
-		isValid, errNo := validator.UpdatePayloadIsValid(c, updateRequestPayload)
-		if isValid == false {
-			c.SendErrorPayload(http.StatusBadRequest, errNo, BadRequestPrefix)
-			return
+	derr := controller.UpdatePayloadIsValid(c, updateRequestPayload)
+	if derr != nil {
+		if derr.StatusCodeIsDefaultValue() {
+			c.SendErrorPayload(http.StatusBadRequest, derr.Num, derr.EndUserMsg)
+		} else {
+			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
 		}
+		return
 	}
 
 	// add entity to the model
 	responsePayload, derr := controller.PerformUpdate(c, updateRequestPayload)
 	if derr != nil {
-		if derr.StatusCode > 299 {
-			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
+		if derr.StatusCodeIsDefaultValue() {
+			c.SendErrorPayload(http.StatusInternalServerError, derr.Num, derr.EndUserMsg)
 		} else {
-			c.SendErrorPayload(http.StatusInternalServerError, derr.Num, InternalServerErrorPrefix)
+			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
 		}
 		return
 	}

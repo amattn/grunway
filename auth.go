@@ -73,27 +73,27 @@ func (authController *AccountController) PostHandlerV1Create(c *Context) {
 	StandardCreateHandler(authController, c, NewAccountCreateRequestPayload())
 }
 
-func (authController *AccountController) CreatePayloadIsValid(c *Context, createRequestPayload interface{}) (isValid bool, errNo int64) {
+func (authController *AccountController) CreatePayloadIsValid(c *Context, createRequestPayload interface{}) *deeperror.DeepError {
 	requestPayloadPtr, isExpectedType := createRequestPayload.(*AccountCreateRequestPayload)
 	if isExpectedType == false {
-		return false, 59244845
+		return deeperror.NewHTTPError(59244845, "", nil, http.StatusInternalServerError)
 	}
 
 	if len(requestPayloadPtr.Name) > 256 {
-		return false, 512187272
+		return deeperror.NewHTTPError(512187272, "", nil, http.StatusBadRequest)
 	}
 
 	emailIsValid := SimpleEmailValidation(requestPayloadPtr.Email)
 	if emailIsValid == false {
-		return false, 512187273
+		return deeperror.NewHTTPError(512187273, "", nil, http.StatusBadRequest)
 	}
 
 	passwordIsValue := SimplePasswordValidation(requestPayloadPtr.Password)
 	if passwordIsValue == false {
-		return false, 512187274
+		return deeperror.NewHTTPError(512187274, "", nil, http.StatusBadRequest)
 	}
 
-	return true, 0
+	return nil
 }
 
 func (authController *AccountController) PerformCreate(c *Context, createRequestPayload interface{}) (interface{}, *deeperror.DeepError) {

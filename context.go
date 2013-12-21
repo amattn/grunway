@@ -42,6 +42,9 @@ func (c *Context) Set(key, value string) {
 }
 
 func (c *Context) WrapAndSendPayload(payload interface{}) {
+	if payload == nil {
+		c.SendErrorPayload(http.StatusInternalServerError, 388359273, "")
+	}
 	wrapAndSendPayload(c, payload)
 }
 
@@ -52,7 +55,11 @@ func (c *Context) WrapAndSendPayloadList(payloadList []interface{}) {
 
 // Error
 func (c *Context) SendErrorPayload(code int, errNo int64, errStr string) {
-	sendErrorPayload(c, code, errNo, errStr, "")
+	enduserErrMsg := errStr
+	if len(errStr) == 0 {
+		enduserErrMsg = http.StatusText(code)
+	}
+	sendErrorPayload(c, code, errNo, enduserErrMsg, "")
 }
 
 // Alert payloads are designed as a general notification service for clients (ie client must upgrade, server is in maint mode, etc.)
@@ -69,7 +76,7 @@ func (c *Context) DecodeResponseBodyOrSendError(pc PayloadController, payloadRef
 	requestBody := c.R.Body
 	if requestBody == nil {
 		errStr := BadRequestPrefix + ": Expected non-empty body"
-		c.SendErrorPayload(http.StatusBadRequest, 4003399819, errStr)
+		c.SendErrorPayload(http.StatusBadRequest, 3003399819, errStr)
 		return nil
 	}
 	defer requestBody.Close()
@@ -79,9 +86,9 @@ func (c *Context) DecodeResponseBodyOrSendError(pc PayloadController, payloadRef
 
 	if err != nil {
 		errStr := BadRequestPrefix + ": Cannot parse body"
-		derr := deeperror.New(4005488054, errStr, err)
+		derr := deeperror.New(3005488054, errStr, err)
 		log.Println("derr", derr)
-		c.SendErrorPayload(http.StatusBadRequest, 4005488054, errStr)
+		c.SendErrorPayload(http.StatusBadRequest, 3005488054, errStr)
 		return nil
 	}
 
