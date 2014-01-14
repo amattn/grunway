@@ -152,6 +152,10 @@ type AccountLoginResponse struct {
 	PublicKey string
 }
 
+func (resp *AccountLoginResponse) PayloadType() string {
+	return "LoginResponse"
+}
+
 func (authController *AuthController) PostHandlerV1Login(c *Context) {
 	// Check our assumptions
 	if authController.AS == nil {
