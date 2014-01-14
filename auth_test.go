@@ -35,7 +35,7 @@ func TestValidateSignature(t *testing.T) {
 		"X-Auth-Sig":    []string{encodedSig},
 		"X-Auth-Scheme": []string{SCHEME_VERSION_1},
 	}
-	validationError := validateSignature("secretKey", "GET", requestURL, header)
+	validationError := validateSignature("secretKey", "GET", "example.com", requestURL, header)
 	if validationError != 0 {
 		t.Error("Expected valid signature, expected validationError == 0, got", validationError)
 	}

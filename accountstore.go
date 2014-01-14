@@ -34,15 +34,15 @@ type AccountStore interface {
 
 	// QUERY
 	AllAccounts() ([]*Account, error)
-	AccountWithId(pkey int64) (*Account, error)
-	AccountWithEmail(q string) (*Account, error)
-	AccountWithPublicKey(q string) (*Account, error)
+	AccountWithId(pkey int64) (MaybeAccount, error)
+	AccountWithEmail(q string) (MaybeAccount, error)
+	AccountWithPublicKey(q string) (MaybeAccount, error)
 	EmailAddressAvailable(email string) (bool, *deeperror.DeepError)
 
 	// UPDATE
 	ChangeUserEmail(pkey int64, newEmail string) error
 	ChangeUserPassword(pkey int64, newPassword string) error
-	UpdateUserLastLogin(pkey int64) (*Account, error)
+	UpdateUserLastLogin(pkey int64) (MaybeAccount, error)
 
 	// AUTH
 	Login(submittedEmail, submittedPassword string) (*Account, error)
@@ -63,6 +63,36 @@ type Account struct {
 	Created   time.Time `meddler:"created,utctimez"`
 	Modified  time.Time `meddler:"modified,utctimez"`
 	LastLogin time.Time `meddler:"lastlogin,utctimez"`
+}
+
+type MaybeAccount struct {
+	hiddenAccount *Account
+}
+
+func MakeMaybeAccount(acct *Account) MaybeAccount {
+	return MaybeAccount{acct}
+}
+
+func (ma MaybeAccount) AccountOrCrash(optionalErrNum int64) *Account {
+	if ma.IsNil() {
+		errNum := optionalErrNum
+		if errNum == 0 {
+			errNum = 2857365840
+		}
+		deeperror.Fatal(errNum, "Fatal Error", nil)
+	}
+	return ma.hiddenAccount
+}
+
+func (ma MaybeAccount) HasValidAccountPointer() bool {
+	if ma.hiddenAccount == nil {
+		return false
+	}
+	return true
+}
+
+func (ma MaybeAccount) IsNil() bool {
+	return !ma.HasValidAccountPointer()
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -59,22 +59,32 @@ func NewAccountResponsePayload() *AccountResponsePayload {
 //  #####  #    # ###### #    #   #   ######
 //
 
-type AccountCreateRequestPayload struct {
+type AccountCreateRequest struct {
 	Name     string
 	Email    string
 	Password string
 }
+type AccountCreateResponse struct {
+	Id        int64
+	Name      string
+	Email     string
+	PublicKey string
+	SecretKey string
+}
 
-func NewAccountCreateRequestPayload() *AccountCreateRequestPayload {
-	return new(AccountCreateRequestPayload) // leaky bucket?
+func NewAccountCreateRequest() *AccountCreateRequest {
+	return new(AccountCreateRequest) // leaky bucket?
+}
+func NewAccountCreateResponse() *AccountCreateResponse {
+	return new(AccountCreateResponse)
 }
 
 func (authController *AccountController) PostHandlerV1Create(c *Context) {
-	StandardCreateHandler(authController, c, NewAccountCreateRequestPayload())
+	StandardCreateHandler(authController, c, NewAccountCreateRequest())
 }
 
 func (authController *AccountController) CreatePayloadIsValid(c *Context, createRequestPayload interface{}) *deeperror.DeepError {
-	requestPayloadPtr, isExpectedType := createRequestPayload.(*AccountCreateRequestPayload)
+	requestPayloadPtr, isExpectedType := createRequestPayload.(*AccountCreateRequest)
 	if isExpectedType == false {
 		return deeperror.NewHTTPError(59244845, "", nil, http.StatusInternalServerError)
 	}
@@ -97,7 +107,7 @@ func (authController *AccountController) CreatePayloadIsValid(c *Context, create
 }
 
 func (authController *AccountController) PerformCreate(c *Context, createRequestPayload interface{}) (interface{}, *deeperror.DeepError) {
-	requestPayloadPtr, isExpectedType := createRequestPayload.(*AccountCreateRequestPayload)
+	requestPayloadPtr, isExpectedType := createRequestPayload.(*AccountCreateRequest)
 	if isExpectedType == false {
 		return nil, deeperror.NewHTTPError(3340732022, InternalServerErrorPrefix, nil, http.StatusInternalServerError)
 	}
@@ -126,11 +136,12 @@ func (authController *AccountController) PerformCreate(c *Context, createRequest
 		return nil, derr
 	}
 
-	responsePld := NewAccountResponsePayload()
+	responsePld := NewAccountCreateResponse()
 	responsePld.Email = acct.Email
 	responsePld.Name = acct.Name
 	responsePld.Id = acct.PKey
 	responsePld.PublicKey = acct.PublicKey
+	responsePld.SecretKey = acct.SecretKey
 
 	return responsePld, nil
 }
@@ -150,6 +161,7 @@ type AccountLoginRequest struct {
 }
 type AccountLoginResponse struct {
 	PublicKey string
+	SecretKey string
 }
 
 func (resp *AccountLoginResponse) PayloadType() string {
@@ -205,6 +217,7 @@ func (authController *AuthController) PostHandlerV1Login(c *Context) {
 	// fetch SecretKey
 	responsePld := new(AccountLoginResponse)
 	responsePld.PublicKey = acct.PublicKey
+	responsePld.SecretKey = acct.SecretKey
 
 	// response
 	c.WrapAndSendPayload(responsePld)
@@ -265,8 +278,7 @@ func performAuth(routePtr *Route, ctx *Context) (authenticationWasSucessful bool
 	if errInt != 0 {
 		return false, errInt
 	}
-
-	validationErrNum := validateSignature(secretKey, ctx.R.Method, ctx.R.URL, ctx.R.Header)
+	validationErrNum := validateSignature(secretKey, ctx.R.Method, ctx.R.Host, ctx.R.URL, ctx.R.Header)
 	if validationErrNum == 0 {
 		ctx.PublicKey = publicKey
 		return true, 0
@@ -284,10 +296,18 @@ func stripAllWhitespace(s string) string {
 	}
 	return strings.Map(isWhitespace, s)
 }
-func normalizeURI(url *url.URL) string {
+func normalizeHost(host string) string {
+	return strings.ToLower(host)
+}
+func normalizeURIPath(url *url.URL) string {
 	// NormalizedURI:all lowercase, strip all anchors (#loc), strip all parameters, strip any trailing /
-	baseURI := url.RequestURI()
+	baseURI := url.Path
 	// log.Println("baseURI", baseURI)
+	// log.Println("RequestURI", url.RequestURI())
+	// log.Println("String", url.String())
+	// log.Println("RawQuery", url.RawQuery)
+	// log.Println("Host", url.Host)
+	// log.Println("Path", url.Path)
 	strippedURI := strings.Split(baseURI, "?")[0]
 	normalizedURI := strings.ToLower(strippedURI)
 	normalizedURI = strings.TrimRight(normalizedURI, "/")
@@ -298,7 +318,7 @@ func normalizeQuery(url *url.URL) string {
 	return ""
 }
 
-func validateSignature(secretKey, method string, requestURL *url.URL, header http.Header) (validationErrNum int) {
+func validateSignature(secretKey, method, host string, requestURL *url.URL, header http.Header) (validationErrNum int) {
 	// log.Println("validateSignature")
 	authHeaderKeys := []string{
 		X_AUTH_DATE,
@@ -351,7 +371,8 @@ func validateSignature(secretKey, method string, requestURL *url.URL, header htt
 
 	grunwayReqComponents := []string{
 		method,
-		normalizeURI(requestURL),
+		// normalizeHost(host),
+		normalizeURIPath(requestURL),
 		clientReqDate,
 		clientReqPub,
 		clientReqScheme,
@@ -373,7 +394,7 @@ func validateSignature(secretKey, method string, requestURL *url.URL, header htt
 	if hmac.Equal(clientReqSig, expectedMAC) {
 		return 0
 	} else {
-		return 32601119
+		return 3263832438
 	}
 }
 
@@ -403,7 +424,8 @@ func SignRequest(req *http.Request, publicKey, secretKey string) {
 	// generate string to sign
 	grunwayReqComponents := []string{
 		req.Method,
-		normalizeURI(req.URL),
+		// normalizeHost(req.Host),
+		normalizeURIPath(req.URL),
 		dateStr,
 		publicKey,
 		SCHEME_VERSION_1,

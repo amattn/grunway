@@ -174,48 +174,48 @@ func (store *PostgresAccountStore) AllAccounts() ([]*Account, error) {
 	return []*Account{}, deeperror.NewTODOError(3300996837)
 
 }
-func (store *PostgresAccountStore) AccountWithId(id int64) (*Account, error) {
-	return nil, deeperror.NewTODOError(3300996838)
+func (store *PostgresAccountStore) AccountWithId(id int64) (MaybeAccount, error) {
+	return MaybeAccount{nil}, deeperror.NewTODOError(3300996838)
 
 }
-func (store *PostgresAccountStore) AccountWithEmail(email string) (*Account, error) {
+func (store *PostgresAccountStore) AccountWithEmail(email string) (MaybeAccount, error) {
 	rowPtr := store.queryAccountByEmailStmt.QueryRow(email)
 	if rowPtr == nil {
-		return nil, nil
+		return MaybeAccount{nil}, nil
 	}
 
 	acctPtr, err := scanAccountRow(rowPtr)
 	if err != nil {
 		derr := deeperror.New(3134354280, InternalServerErrorPrefix, err)
 		derr.DebugMsg = "Scan failure"
-		return nil, derr
+		return MaybeAccount{nil}, derr
 	}
-	return acctPtr, nil
+	return MaybeAccount{acctPtr}, nil
 }
-func (store *PostgresAccountStore) AccountWithPublicKey(email string) (*Account, error) {
+func (store *PostgresAccountStore) AccountWithPublicKey(email string) (MaybeAccount, error) {
 	rowPtr := store.queryAccountByPublicKeyStmt.QueryRow(email)
 	if rowPtr == nil {
-		return nil, nil
+		return MaybeAccount{nil}, nil
 	}
 
 	acctPtr, err := scanAccountRow(rowPtr)
 	if err != nil {
 		derr := deeperror.New(3134354280, InternalServerErrorPrefix, err)
 		derr.DebugMsg = "Scan failure"
-		return nil, derr
+		return MaybeAccount{nil}, derr
 	}
-	return acctPtr, nil
+	return MaybeAccount{acctPtr}, nil
 }
 
 func (store *PostgresAccountStore) EmailAddressAvailable(email string) (bool, *deeperror.DeepError) {
 
-	acct, err := store.AccountWithEmail(email)
+	maybeAcct, err := store.AccountWithEmail(email)
 
 	if err != nil {
 		derr := deeperror.NewHTTPError(3237725249, "Could not query email address", err, http.StatusInternalServerError)
 		return false, derr
 	} else {
-		return (acct == nil), nil
+		return (maybeAcct.HasValidAccountPointer() == false), nil
 	}
 }
 
@@ -236,22 +236,22 @@ func (store *PostgresAccountStore) ChangeUserPassword(id int64, newPassword stri
 	return deeperror.NewTODOError(3300996832)
 
 }
-func (store *PostgresAccountStore) UpdateUserLastLogin(pkey int64) (*Account, error) {
+func (store *PostgresAccountStore) UpdateUserLastLogin(pkey int64) (MaybeAccount, error) {
 
 	rowPtr := store.updateAccountLastLoginStmt.QueryRow(pkey)
 	if rowPtr == nil {
 		derr := deeperror.NewHTTPError(3809025802, "pkey Not Found", nil, http.StatusNotFound)
-		return nil, derr
+		return MaybeAccount{}, derr
 	}
 
 	acctPtr, err := scanAccountRow(rowPtr)
 	if err != nil {
 		derr := deeperror.New(3809025803, InternalServerErrorPrefix, err)
 		derr.DebugMsg = "Scan failure"
-		return nil, derr
+		return MaybeAccount{}, derr
 	}
 
-	return acctPtr, nil
+	return MaybeAccount{acctPtr}, nil
 }
 
 //    #
@@ -264,20 +264,23 @@ func (store *PostgresAccountStore) UpdateUserLastLogin(pkey int64) (*Account, er
 //
 
 func (store *PostgresAccountStore) Login(submittedEmail, submittedPassword string) (*Account, error) {
-	acct, err := store.AccountWithEmail(submittedEmail)
+	maybeAcct, err := store.AccountWithEmail(submittedEmail)
 	if err != nil {
+		return nil, deeperror.New(3770650640, "Auth Failure", err)
+	}
+	if maybeAcct.IsNil() {
 		return nil, deeperror.New(3770650641, "Auth Failure", err)
 	}
+	acct := maybeAcct.AccountOrCrash(3770650643)
 
 	err = bcrypt.CompareHashAndPassword(acct.Passhash, []byte(submittedPassword))
 	if err != nil {
-		return nil, deeperror.New(3770650642, "Auth Failure", err)
+		return nil, deeperror.New(3770650645, "Auth Failure", err)
 	}
 
-	acct, err = store.UpdateUserLastLogin(acct.PKey)
+	maybeAcct, err = store.UpdateUserLastLogin(acct.PKey)
 	if err != nil {
-		return nil, deeperror.NewHTTPError(3770650643, "Auth Failure", err, http.StatusInternalServerError)
+		return nil, deeperror.NewHTTPError(3770650648, "Auth Failure", err, http.StatusInternalServerError)
 	}
-
-	return acct, nil
+	return maybeAcct.AccountOrCrash(3539269531), nil
 }
