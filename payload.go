@@ -9,18 +9,41 @@ import (
 	"github.com/amattn/deeperror"
 )
 
-// This will typically be serialized into a JSON formatted string
-type PayloadWrapper struct {
-	PayloadType string        `json:",omitempty"` // optional, typically used for sanity checking
-	PayloadList []interface{} `json:",omitempty"` // ALWAYS an array of objects. Typically, these are arrays of objects designed to be deserialized into entity structs (eg []BookPayload, []AuthorPayload)
-	ErrNo       int64         `json:",omitempty"` // will be 0 on successful responses, non-zero otherwise
-	ErrStr      string        `json:",omitempty"` // end-user appropriate error message
-	Alert       string        `json:",omitempty"` // used when the client end user needs to be alerted of something: (eg, maintenance mode, downtime, sercurity, required update, etc.)
+// If a payload implements this method, then the wrapper will autopopulate the PayloadType field
+type Payload interface {
+	PayloadType() string
 }
 
-// If a payload implements this method, then the wrapper will autopopulate the PayloadType field
-type TypedPayload interface {
-	PayloadType() string
+// ALWAYS a map of array of objects.
+// key is type, value is list of payloads of that type
+// Typically, these are arrays of objects designed to be deserialized into entity structs (eg []BookPayload, []AuthorPayload)
+type PayloadsMap map[string][]Payload
+
+func MakePayloadMapFromPayload(payload Payload) PayloadsMap {
+	return MakePayloadMapFromPayloadsList([]Payload{payload})
+}
+
+func MakePayloadMapFromPayloadsList(payloadsList []Payload) PayloadsMap {
+	payloads := make(PayloadsMap)
+
+	for _, payload := range payloadsList {
+		ptype := payload.PayloadType()
+		plist, exists := payloads[ptype]
+		if exists == true {
+			plist = append(plist, payload)
+		} else {
+			payloads[ptype] = []Payload{payload}
+		}
+	}
+	return payloads
+}
+
+// This will typically be serialized into a JSON formatted string
+type PayloadWrapper struct {
+	Payloads PayloadsMap `json:",omitempty"` // key is type, value is list of payloads of that type
+	ErrNo    int64       `json:",omitempty"` // will be 0 on successful responses, non-zero otherwise
+	ErrStr   string      `json:",omitempty"` // end-user appropriate error message
+	Alert    string      `json:",omitempty"` // used when the client end user needs to be alerted of something: (eg, maintenance mode, downtime, sercurity, required update, etc.)
 }
 
 func NewPayloadWrapper() *PayloadWrapper {
@@ -29,31 +52,18 @@ func NewPayloadWrapper() *PayloadWrapper {
 }
 
 // for a single Enitity
-func wrapAndSendPayload(ctx *Context, payload interface{}) {
-	wrapAndSendPayloadList(ctx, []interface{}{payload})
+func wrapAndSendPayload(ctx *Context, payload Payload) {
+	wrapAndSendPayloadsList(ctx, []Payload{payload})
 }
 
 // for a slice of Entities
-func wrapAndSendPayloadList(ctx *Context, payloadList []interface{}) {
+func wrapAndSendPayloadsList(ctx *Context, payloadsList []Payload) {
+	wrapAndSendPayloadsMap(ctx, MakePayloadMapFromPayloadsList(payloadsList))
+}
+
+func wrapAndSendPayloadsMap(ctx *Context, pldsMap PayloadsMap) {
 	payloadWrapper := NewPayloadWrapper()
-
-	var payloadType string
-
-	for _, payload := range payloadList {
-		typedPayload, isTP := payload.(TypedPayload)
-		if isTP {
-			if payloadType == "" {
-				payloadType = typedPayload.PayloadType()
-			}
-			if payloadType != typedPayload.PayloadType() {
-				payloadType = ""
-				break
-			}
-		}
-	}
-
-	payloadWrapper.PayloadType = payloadType
-	payloadWrapper.PayloadList = payloadList
+	payloadWrapper.Payloads = pldsMap
 	writePayloadWrapper(ctx, http.StatusOK, payloadWrapper)
 }
 

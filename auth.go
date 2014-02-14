@@ -64,12 +64,21 @@ type AccountCreateRequest struct {
 	Email    string
 	Password string
 }
+
+func (req *AccountCreateRequest) PayloadType() string {
+	return "AccountCreateRequest"
+}
+
 type AccountCreateResponse struct {
 	Id        int64
 	Name      string
 	Email     string
 	PublicKey string
 	SecretKey string
+}
+
+func (pld *AccountCreateResponse) PayloadType() string {
+	return "AccountCreateResponse"
 }
 
 func NewAccountCreateRequest() *AccountCreateRequest {
@@ -83,7 +92,7 @@ func (authController *AccountController) PostHandlerV1Create(c *Context) {
 	StandardCreateHandler(authController, c, NewAccountCreateRequest())
 }
 
-func (authController *AccountController) CreatePayloadIsValid(c *Context, createRequestPayload interface{}) *deeperror.DeepError {
+func (authController *AccountController) CreatePayloadIsValid(c *Context, createRequestPayload Payload) *deeperror.DeepError {
 	requestPayloadPtr, isExpectedType := createRequestPayload.(*AccountCreateRequest)
 	if isExpectedType == false {
 		return deeperror.NewHTTPError(59244845, "", nil, http.StatusInternalServerError)
@@ -106,7 +115,7 @@ func (authController *AccountController) CreatePayloadIsValid(c *Context, create
 	return nil
 }
 
-func (authController *AccountController) PerformCreate(c *Context, createRequestPayload interface{}) (interface{}, *deeperror.DeepError) {
+func (authController *AccountController) PerformCreate(c *Context, createRequestPayload Payload) (Payload, *deeperror.DeepError) {
 	requestPayloadPtr, isExpectedType := createRequestPayload.(*AccountCreateRequest)
 	if isExpectedType == false {
 		return nil, deeperror.NewHTTPError(3340732022, InternalServerErrorPrefix, nil, http.StatusInternalServerError)

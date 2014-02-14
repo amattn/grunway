@@ -8,22 +8,20 @@ import (
 )
 
 type CreatePerformer interface {
-	CreatePayloadIsValid(c *Context, createRequestPayload interface{}) *deeperror.DeepError
-	PerformCreate(c *Context, createRequestPayload interface{}) (responsePayload interface{}, derr *deeperror.DeepError)
+	CreatePayloadIsValid(c *Context, createRequestPayload Payload) *deeperror.DeepError
+	PerformCreate(c *Context, createRequestPayload Payload) (responsePayload Payload, derr *deeperror.DeepError)
 }
 
-func StandardCreateHandler(controller CreatePerformer, c *Context, createRequestPayload interface{}) {
+func StandardCreateHandler(controller CreatePerformer, c *Context, createRequestPayload Payload) (*RouteError, PayloadsMap, CustomRouteResponse) {
 	// Get the request
 	requestBody := c.R.Body
 	if requestBody == nil {
-		c.SendErrorPayload(http.StatusBadRequest, 3370318075, BadRequestPrefix+"Expected non-empty body")
-		return
+		return c.ReturnRouteError(http.StatusBadRequest, 3370318075, BadRequestPrefix+"Expected non-empty body")
 	}
 	defer requestBody.Close()
 
 	if c.E.PrimaryKey != 0 {
-		c.SendErrorPayload(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix+" Cannot set primary key")
-		return
+		return c.ReturnRouteError(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix+" Cannot set primary key")
 	}
 
 	// parse the json
@@ -32,8 +30,7 @@ func StandardCreateHandler(controller CreatePerformer, c *Context, createRequest
 
 	if err != nil {
 		errStr := BadRequestPrefix + ": Cannot parse body"
-		c.SendErrorPayload(http.StatusBadRequest, 3540227685, errStr)
-		return
+		return c.ReturnRouteError(http.StatusBadRequest, 3540227685, errStr)
 	}
 
 	// validate json
@@ -41,29 +38,27 @@ func StandardCreateHandler(controller CreatePerformer, c *Context, createRequest
 	if derr != nil {
 		// log.Println("CreatePayloadIsValid returned derr", derr)
 		if derr.StatusCodeIsDefaultValue() {
-			c.SendErrorPayload(http.StatusBadRequest, derr.Num, derr.EndUserMsg)
+			return c.ReturnRouteError(http.StatusBadRequest, derr.Num, derr.EndUserMsg)
 		} else {
-			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
+			return c.ReturnRouteError(derr.StatusCode, derr.Num, derr.EndUserMsg)
 		}
-		return
 	}
 
 	// add entity to the model
 	responsePayload, derr := controller.PerformCreate(c, createRequestPayload)
 	if derr != nil {
 		if derr.StatusCodeIsDefaultValue() {
-			c.SendErrorPayload(http.StatusInternalServerError, derr.Num, derr.EndUserMsg)
+			return c.ReturnRouteError(http.StatusInternalServerError, derr.Num, derr.EndUserMsg)
 		} else {
-			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
+			return c.ReturnRouteError(derr.StatusCode, derr.Num, derr.EndUserMsg)
 		}
-		return
 	}
 
 	// response
 	if responsePayload != nil {
-		c.WrapAndSendPayload(responsePayload)
+		return c.ReturnPayload(responsePayload)
 	} else {
-		c.SendOkPayload()
+		return c.ReturnOK()
 	}
 }
 
@@ -77,11 +72,11 @@ func StandardCreateHandler(controller CreatePerformer, c *Context, createRequest
 //
 
 type UpdatePerformer interface {
-	UpdatePayloadIsValid(c *Context, updateRequestPayload interface{}) *deeperror.DeepError
-	PerformUpdate(c *Context, updateRequestPayload interface{}) (responsePayload interface{}, derr *deeperror.DeepError)
+	UpdatePayloadIsValid(c *Context, updateRequestPayload Payload) *deeperror.DeepError
+	PerformUpdate(c *Context, updateRequestPayload Payload) (responsePayload Payload, derr *deeperror.DeepError)
 }
 
-func StandardUpdateHandler(controller UpdatePerformer, c *Context, updateRequestPayload interface{}) {
+func StandardUpdateHandler(controller UpdatePerformer, c *Context, updateRequestPayload Payload) {
 	// Get the request
 	requestBody := c.R.Body
 	if requestBody == nil {

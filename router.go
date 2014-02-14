@@ -7,8 +7,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-
-	"github.com/amattn/deeperror"
 )
 
 const (
@@ -103,9 +101,10 @@ func (router *Router) AddEntityRoute(entityName, controllerName, handlerName str
 
 	isValid, reason, handler := ValidateHandler(unknownhandler)
 	if isValid == false {
-		errMsg := fmt.Sprintln("entityName:", entityName, "controllerName:", controllerName, "Invalid Handler:", handlerName, "reason:", reason)
-		derr := deeperror.New(3230075622, errMsg, nil)
-		log.Println("Handler Validation Failure:", derr)
+		errNum := int64(3230075622)
+		errMsg := fmt.Sprintln(errNum, "Handler Validation Failure:", "entityName:", entityName, "controllerName:", controllerName, "Invalid Handler:", handlerName, "reason:", reason)
+		// derr := deeperror.New(errNum, errMsg, nil)
+		log.Println(errMsg)
 		// skip... invalid prefix
 		return
 	}
@@ -175,6 +174,11 @@ func (router *Router) AddEntityRoute(entityName, controllerName, handlerName str
 	routePtr.VersionStr = versionStr
 
 	setRoute(router.RouteMap, routePtr.Method, routePtr.VersionStr, routePtr.Action, routePtr)
+}
+
+// Convenience method
+func (router *Router) AllRoutesCount() int {
+	return len(router.RouteMap)
 }
 
 // Basically just used for logging and debugging.
@@ -330,12 +334,21 @@ func (router *Router) handleContext(ctx *Context, req *http.Request) {
 	}
 
 	// 7. call handler method
+	rtErr, pMap, customRtResp := routePtr.Handler(ctx)
+	if rtErr != nil {
+		ctx.SendErrorPayload(rtErr.code, rtErr.errNo, rtErr.errStr)
+	} else if pMap != nil {
+		ctx.WrapAndSendPayloadsMap(pMap)
+	} else if customRtResp != nil {
 
-	routePtr.Handler(ctx)
+	} else {
+
+	}
 
 	// 8. any post-handler stuff
 
 	// TODO
+
 }
 
 // RouteMap helpers

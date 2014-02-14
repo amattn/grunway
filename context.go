@@ -41,16 +41,44 @@ func (c *Context) Set(key, value string) {
 	c.w.Header().Set(key, value)
 }
 
-func (c *Context) WrapAndSendPayload(payload interface{}) {
-	if payload == nil {
-		c.SendErrorPayload(http.StatusInternalServerError, 388359273, "")
+// conveninece wrapper, designed to generate return values inside a Route Handler
+func (c *Context) ReturnRouteError(code int, errNo int64, errStr string) (*RouteError, PayloadsMap, CustomRouteResponse) {
+	return NewRouteError(code, errNo, errStr), nil, nil
+}
+
+// conveninece wrapper, designed to generate return values inside a Route Handler
+func (c *Context) ReturnPayload(payload Payload) (*RouteError, PayloadsMap, CustomRouteResponse) {
+	return nil, MakePayloadMapFromPayload(payload), nil
+}
+
+// conveninece wrapper, designed to generate return values inside a Route Handler
+func (c *Context) ReturnCustom(crh CustomRouteResponse) (*RouteError, PayloadsMap, CustomRouteResponse) {
+	return nil, nil, crh
+}
+
+func (c *Context) ReturnOK() (*RouteError, PayloadsMap, CustomRouteResponse) {
+
+	return nil, nil, func(ctx *Context) {
+		ctx.SendOkPayload()
 	}
-	wrapAndSendPayload(c, payload)
+}
+
+func (ctx *Context) WrapAndSendPayload(payload Payload) {
+	if payload == nil {
+		ctx.SendErrorPayload(http.StatusInternalServerError, 388359273, "")
+		return
+	}
+	wrapAndSendPayload(ctx, payload)
 }
 
 // for a slice of Entities
-func (c *Context) WrapAndSendPayloadList(payloadList []interface{}) {
-	wrapAndSendPayloadList(c, payloadList)
+func (ctx *Context) WrapAndSendPayloadsList(payloadList []Payload) {
+	wrapAndSendPayloadsList(ctx, payloadList)
+}
+
+// for a map of slices of Entities
+func (ctx *Context) WrapAndSendPayloadsMap(payloads PayloadsMap) {
+	wrapAndSendPayloadsMap(ctx, payloads)
 }
 
 // Error

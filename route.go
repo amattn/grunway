@@ -30,10 +30,28 @@ type Route struct {
 	EntityName     string
 	Action         string
 	Authenticator  AuthenticatingPayloadController
-	Handler        func(*Context)
+	Handler        RouteHandler
 	HandlerName    string // not actually used except for logging and debugging
 	ControllerName string // not actually used except for logging and debugging
 }
+
+type RouteHandler func(*Context) (*RouteError, PayloadsMap, CustomRouteResponse)
+
+type RouteError struct {
+	code   int    // HTTP Status code
+	errNo  int64  // Internal error number
+	errStr string // Client Visible error message
+}
+
+func NewRouteError(code int, errNo int64, errStr string) *RouteError {
+	rerr := new(RouteError)
+	rerr.code = code
+	rerr.errNo = errNo
+	rerr.errStr = errStr
+	return rerr
+}
+
+type CustomRouteResponse func(*Context)
 
 func parseVersionFromPrefixlessHandlerName(versionActionHandlerName string) (vStr string, action string) {
 	re := regexp.MustCompile("^V([0-9]+)(.*)")
@@ -70,15 +88,16 @@ func ValidateHandlerName(handler interface{}) (isValid bool, reason string) {
 	// TODO length? not much here really.
 	return true, ""
 }
-func ValidateHandler(unknownHandler interface{}) (isValid bool, reason string, handler func(*Context)) {
-	// TODO check method signature...  probably should return the typed handler as well.
+func ValidateHandler(unknownHandler interface{}) (isValid bool, reason string, handler RouteHandler) {
 
-	handler, ok := unknownHandler.(func(*Context))
+	// We have to do some type gymnastics here.  first check the if the method matches the raw function type...
+	validHandler, ok := unknownHandler.(func(*Context) (*RouteError, PayloadsMap, CustomRouteResponse))
 
 	if ok == false {
-		return false, "wrong function type", nil
-		// AddEntityRoute should parse and validate the handler
+		return false, "wrong function type, expected function type of RouteHandler", nil
 	}
 
+	// ...then convert the raw funtion type to the typed RouteHandler
+	handler = validHandler
 	return true, "", handler
 }
