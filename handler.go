@@ -76,11 +76,11 @@ type UpdatePerformer interface {
 	PerformUpdate(c *Context, updateRequestPayload Payload) (responsePayload Payload, derr *deeperror.DeepError)
 }
 
-func StandardUpdateHandler(controller UpdatePerformer, c *Context, updateRequestPayload Payload) {
+func StandardUpdateHandler(controller UpdatePerformer, ctx *Context, updateRequestPayload Payload) {
 	// Get the request
-	requestBody := c.R.Body
+	requestBody := ctx.R.Body
 	if requestBody == nil {
-		c.SendErrorPayload(http.StatusBadRequest, 3851489100, BadRequestPrefix+"Expected non-empty body")
+		ctx.SendErrorPayload(http.StatusBadRequest, 3851489100, BadRequestPrefix+"Expected non-empty body")
 		return
 	}
 	defer requestBody.Close()
@@ -91,37 +91,37 @@ func StandardUpdateHandler(controller UpdatePerformer, c *Context, updateRequest
 
 	if err != nil {
 		errStr := BadRequestPrefix + ": Cannot parse body"
-		c.SendErrorPayload(http.StatusBadRequest, 1858602328, errStr)
+		ctx.SendErrorPayload(http.StatusBadRequest, 1858602328, errStr)
 		return
 	}
 
 	// validate json
-	derr := controller.UpdatePayloadIsValid(c, updateRequestPayload)
+	derr := controller.UpdatePayloadIsValid(ctx, updateRequestPayload)
 	if derr != nil {
 		if derr.StatusCodeIsDefaultValue() {
-			c.SendErrorPayload(http.StatusBadRequest, derr.Num, derr.EndUserMsg)
+			ctx.SendErrorPayload(http.StatusBadRequest, derr.Num, derr.EndUserMsg)
 		} else {
-			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
+			ctx.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
 		}
 		return
 	}
 
 	// add entity to the model
-	responsePayload, derr := controller.PerformUpdate(c, updateRequestPayload)
+	responsePayload, derr := controller.PerformUpdate(ctx, updateRequestPayload)
 	if derr != nil {
 		if derr.StatusCodeIsDefaultValue() {
-			c.SendErrorPayload(http.StatusInternalServerError, derr.Num, derr.EndUserMsg)
+			ctx.SendErrorPayload(http.StatusInternalServerError, derr.Num, derr.EndUserMsg)
 		} else {
-			c.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
+			ctx.SendErrorPayload(derr.StatusCode, derr.Num, derr.EndUserMsg)
 		}
 		return
 	}
 
 	// response
 	if responsePayload != nil {
-		c.WrapAndSendPayload(responsePayload)
+		ctx.WrapAndSendPayload(responsePayload)
 	} else {
-		c.SendOkPayload()
+		sendOkPayload(ctx)
 	}
 }
 
@@ -135,34 +135,34 @@ func StandardUpdateHandler(controller UpdatePerformer, c *Context, updateRequest
 //
 
 type DeletePerformer interface {
-	PerformDelete(c *Context) (didSucceed bool, errNo int64)
+	PerformDelete(ctx *Context) (didSucceed bool, errNo int64)
 }
 type DeleteValidator interface {
-	DeleteRequestIsValid(c *Context) (isValid bool, errNo int64)
+	DeleteRequestIsValid(ctx *Context) (isValid bool, errNo int64)
 }
 
-func StandardDeleteHandler(c *Context, controller DeletePerformer) {
-	if c.E.PrimaryKey <= 0 {
-		c.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestPrefix)
+func StandardDeleteHandler(ctx *Context, controller DeletePerformer) {
+	if ctx.E.PrimaryKey <= 0 {
+		ctx.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestPrefix)
 		return
 	}
 
 	// validate json
 	validator, isValidator := controller.(DeleteValidator)
 	if isValidator {
-		isValid, errNo := validator.DeleteRequestIsValid(c)
+		isValid, errNo := validator.DeleteRequestIsValid(ctx)
 		if isValid == false {
-			c.SendErrorPayload(http.StatusBadRequest, errNo, BadRequestPrefix)
+			ctx.SendErrorPayload(http.StatusBadRequest, errNo, BadRequestPrefix)
 			return
 		}
 	}
 
 	// delete entity
-	didSucceed, errNo := controller.PerformDelete(c)
+	didSucceed, errNo := controller.PerformDelete(ctx)
 	if didSucceed == false {
-		c.SendErrorPayload(http.StatusInternalServerError, errNo, InternalServerErrorPrefix)
+		ctx.SendErrorPayload(http.StatusInternalServerError, errNo, InternalServerErrorPrefix)
 		return
 	}
 
-	c.SendOkPayload()
+	sendOkPayload(ctx)
 }

@@ -13,22 +13,20 @@ func TestNothing(t *testing.T) {
 	// just a placeholder
 }
 
-type AuthorController struct {
-}
-type BookController struct {
-}
-
-func (ctrlr *BookController) GetSecretKey(publicKey string) (string, int) {
-	return "abc", 0
-}
-
 type AuthorPayload struct {
 	PKey int64
 	Name string
 }
 
 func (payload AuthorPayload) PayloadType() string {
-	return "AuthorPayload"
+	return "author"
+}
+
+type AuthorController struct {
+}
+
+func (self *AuthorController) GetHandlerV1(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
+	return ctx.ReturnOK()
 }
 
 type BookPayload struct {
@@ -38,48 +36,56 @@ type BookPayload struct {
 }
 
 func (payload BookPayload) PayloadType() string {
-	return "BookPayload"
+	return "book"
 }
 
-func (self *AuthorController) GetHandlerV1(ctx *Context) {
-	ctx.SendOkPayload()
+type BookController struct {
 }
 
-func (self *BookController) GetHandlerV1(ctx *Context) {
+func (ctrlr *BookController) GetSecretKey(publicKey string) (string, int) {
+	return "abc", 0
+}
+func (ctrlr *BookController) PerformAuth(routePtr *Route, ctx *Context) (authenticationWasSucessful bool, failureToAuthErrorNum int) {
+	// hard code test to fail
+	return false, 3220239796
+}
+
+func (self *BookController) GetHandlerV1(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
 
 	var book BookPayload
 	book.PKey = 1
 	book.Name = "The Greatest Works of All Time"
 	book.AuthorId = 1
 
-	ctx.WrapAndSendPayload(book)
+	return nil, MakePayloadMapFromPayload(book), nil
 }
-func (self *BookController) GetHandlerV2(ctx *Context) {
-	ctx.SendOkPayload()
+
+func (self *BookController) GetHandlerV2(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
+	return ctx.ReturnOK()
 }
-func (self *BookController) GetHandlerV003(ctx *Context) {
-	ctx.SendOkPayload()
+func (self *BookController) GetHandlerV003(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
+	return ctx.ReturnOK()
 }
-func (self *BookController) GetHandlerV018(ctx *Context) {
-	ctx.SendOkPayload()
+func (self *BookController) GetHandlerV018(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
+	return ctx.ReturnOK()
 }
-func (self *BookController) PostHandlerV1(ctx *Context) {
-	ctx.SendOkPayload()
+func (self *BookController) PostHandlerV1(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
+	return ctx.ReturnOK()
 }
-func (self *BookController) PutHandlerV1(ctx *Context) {
-	ctx.SendOkPayload()
+func (self *BookController) PutHandlerV1(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
+	return ctx.ReturnOK()
 }
-func (self *BookController) DeleteHandlerV1(ctx *Context) {
-	ctx.SendOkPayload()
+func (self *BookController) DeleteHandlerV1(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
+	return ctx.ReturnOK()
 }
-func (self *BookController) GetHandlerV1All(ctx *Context) {
-	ctx.SendOkPayload()
+func (self *BookController) GetHandlerV1All(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
+	return ctx.ReturnOK()
 }
-func (self *BookController) GetHandlerV1Popular(ctx *Context) {
-	ctx.SendOkPayload()
+func (self *BookController) GetHandlerV1Popular(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
+	return ctx.ReturnOK()
 }
-func (self *BookController) AuthGetHandlerV1Login(ctx *Context) {
-	ctx.SendOkPayload()
+func (self *BookController) AuthGetHandlerV1Login(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
+	return ctx.ReturnOK()
 }
 
 func makeLibrary(t *testing.T) *Router {
@@ -120,14 +126,17 @@ func TestRouter(t *testing.T) {
 
 		// Custom
 		"/api/v1/book/Popular": http.StatusOK,
+		"/api/v1/book/all":     http.StatusOK,
 		"/api/v1/book/All":     http.StatusOK,
 		"/api/v1/book/Bogus":   http.StatusNotFound,
 	}
 
 	commonTest := func(t *testing.T, response *http.Response, urlsuffix string) {
-		ct := response.Header.Get("Content-Type")
-		if ct != "application/json" {
-			t.Error(urlsuffix, "expected json content type, got", ct)
+		ct := response.Header.Get(httpHeaderContentType)
+		if ct != httpHeaderContentTypeJSON {
+			// t.Logf("response %+v", response)
+			// t.Logf("response.Header %+v", response.Header)
+			t.Error(urlsuffix, "expected \"Content-Type\":", httpHeaderContentTypeJSON, ", got \"Content-Type\":", ct, "contentLength:", response.ContentLength)
 		}
 	}
 
@@ -137,6 +146,7 @@ func TestRouter(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer response.Body.Close()
+		// t.Log("starting getURLAndStatusCodes", urlsuffix, expectedStatusCode, response.ContentLength)
 
 		if response.StatusCode != expectedStatusCode {
 
@@ -146,6 +156,7 @@ func TestRouter(t *testing.T) {
 		}
 
 		commonTest(t, response, urlsuffix)
+		// t.Log("ending getURLAndStatusCodes", ts.URL+urlsuffix)
 	}
 
 	postURLAndStatusCodes := map[string]int{
@@ -162,6 +173,7 @@ func TestRouter(t *testing.T) {
 	}
 
 	for urlsuffix, expectedStatusCode := range postURLAndStatusCodes {
+		// t.Log("starting postURLAndStatusCodes, posting plain text")
 		buf := bytes.NewBufferString("Hello World!")
 		response, err := http.Post(ts.URL+urlsuffix, "text/plain", buf)
 		if err != nil {
@@ -175,6 +187,7 @@ func TestRouter(t *testing.T) {
 		}
 
 		commonTest(t, response, urlsuffix)
+		// t.Log("ending postURLAndStatusCodes, posting plain text")
 	}
 
 	putURLAndStatusCodes := map[string]int{
@@ -191,6 +204,7 @@ func TestRouter(t *testing.T) {
 	}
 
 	for urlsuffix, expectedStatusCode := range putURLAndStatusCodes {
+		// t.Log("starting putURLAndStatusCodes, posting plain text")
 		buf := bytes.NewBufferString("Hello World!")
 
 		client := new(http.Client)
@@ -207,6 +221,7 @@ func TestRouter(t *testing.T) {
 			t.Error("response body:", string(body))
 		}
 		commonTest(t, response, urlsuffix)
+		// t.Log("ending putURLAndStatusCodes, posting plain text")
 	}
 }
 
@@ -223,11 +238,11 @@ func TestPayload(t *testing.T) {
 	}
 	defer response.Body.Close()
 	bodyString := string(bodyBytes)
-	t.Log(bodyString)
+	// t.Log(bodyString)
 
 	// decode the json,
-	var pw PayloadWrapper
-	err = json.Unmarshal(bodyBytes, &pw)
+	pw, err := UnmarshalPayloadWrapper(bodyBytes, BookPayload{}, AuthorPayload{})
+	t.Logf("pw %+v", pw)
 
 	if err != nil {
 		t.Fatal("9063845927 JSON unmarshal failure", err, "\n", bodyString)
@@ -239,28 +254,35 @@ func TestPayload(t *testing.T) {
 	}
 	//check pk matches expected,
 
-	if len(pw.PayloadList) != 1 {
-		t.Errorf("918188684 expected 1 entity, got %v\npayload:%+v", pw.ErrStr, pw)
+	if len(pw.Payloads) != 1 {
+		t.Errorf("918188684 expected 1 payloadType, got %v\npayload:%+v", pw.ErrStr, pw)
+
 	}
 
 	t.Log("pw", pw)
-	t.Log("pw.PayloadList", pw.PayloadList)
-	for i, untypedEntity := range pw.PayloadList {
+	t.Log("pw.Payloads", pw.Payloads)
 
-		t.Log("untypedEntity", untypedEntity)
-		jsonBytes, err := json.Marshal(untypedEntity)
-		if err != nil {
-			t.Fatalf("918188685 failure to marshal entity %+v", untypedEntity)
-		}
+	for payloadType, payloadList := range pw.Payloads {
 
-		var bookPayload BookPayload
-		err = json.Unmarshal(jsonBytes, &bookPayload)
-		if err != nil {
-			t.Fatalf("918188686 failure to Unmarshal entity %+v", string(jsonBytes))
-		}
+		t.Log("payloadType", payloadType)
 
-		if bookPayload.PKey != 1 {
-			t.Errorf("918188687 i:%d Expected pk == 1, got %d\nentity:%+v\nbodyString:%v", i, bookPayload.PKey, pw, bodyString)
+		for i, untypedEntity := range payloadList {
+
+			t.Log("untypedEntity", untypedEntity)
+			jsonBytes, err := json.Marshal(untypedEntity)
+			if err != nil {
+				t.Fatalf("918188685 failure to marshal entity %+v", untypedEntity)
+			}
+
+			var bookPayload BookPayload
+			err = json.Unmarshal(jsonBytes, &bookPayload)
+			if err != nil {
+				t.Fatalf("918188686 failure to Unmarshal entity %+v", string(jsonBytes))
+			}
+
+			if bookPayload.PKey != 1 {
+				t.Errorf("918188687 i:%d Expected pk == 1, got %d\nentity:%+v\nbodyString:%v", i, bookPayload.PKey, pw, bodyString)
+			}
 		}
 	}
 }

@@ -28,16 +28,16 @@ type Context struct {
 	ContentLength int
 }
 
-func (c *Context) Add(key, value string) {
+func (c *Context) AddHeader(key, value string) {
 	c.w.Header().Add(key, value)
 }
-func (c *Context) Del(key string) {
+func (c *Context) DelHeader(key string) {
 	c.w.Header().Del(key)
 }
-func (c *Context) Get(key string) string {
+func (c *Context) GetHeader(key string) string {
 	return c.w.Header().Get(key)
 }
-func (c *Context) Set(key, value string) {
+func (c *Context) SetHeader(key, value string) {
 	c.w.Header().Set(key, value)
 }
 
@@ -57,10 +57,9 @@ func (c *Context) ReturnCustom(crh CustomRouteResponse) (*RouteError, PayloadsMa
 }
 
 func (c *Context) ReturnOK() (*RouteError, PayloadsMap, CustomRouteResponse) {
-
-	return nil, nil, func(ctx *Context) {
-		ctx.SendOkPayload()
-	}
+	return c.ReturnCustom(func(ctx *Context) {
+		sendOkPayload(ctx)
+	})
 }
 
 func (ctx *Context) WrapAndSendPayload(payload Payload) {
@@ -93,11 +92,6 @@ func (c *Context) SendErrorPayload(code int, errNo int64, errStr string) {
 // Alert payloads are designed as a general notification service for clients (ie client must upgrade, server is in maint mode, etc.)
 func (c *Context) SendAlertPayload(code int, errNo int64, errStr, alert string) {
 	sendErrorPayload(c, code, errNo, errStr, alert)
-}
-
-// Ok payload is just a json dict w/ one kv: errNo == 0
-func (c *Context) SendOkPayload() {
-	sendOkPayload(c)
 }
 
 func (c *Context) DecodeResponseBodyOrSendError(pc PayloadController, payloadReference interface{}) interface{} {

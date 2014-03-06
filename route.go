@@ -23,13 +23,14 @@ const VERSION_BIT_DEPTH = 16
 type VersionUint uint16
 
 type Route struct {
-	RequiresAuth   bool
+	RequiresAuth  bool
+	Authenticator AuthHandler
+
 	Method         string
 	Path           string
 	VersionStr     string
 	EntityName     string
 	Action         string
-	Authenticator  AuthenticatingPayloadController
 	Handler        RouteHandler
 	HandlerName    string // not actually used except for logging and debugging
 	ControllerName string // not actually used except for logging and debugging

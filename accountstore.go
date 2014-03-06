@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/go.crypto/bcrypt"
+	// "code.google.com/p/go.crypto/bcrypt"
 	"github.com/amattn/deeperror"
 )
 
@@ -98,12 +98,6 @@ func (ma MaybeAccount) IsNil() bool {
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 // UTILITIES
-
-func encryptPassword(password string) ([]byte, error) {
-	// bcrypt.DefaultCost can be substituted for any number between
-	// bcrypt.MinimumCost and bcrypt.MaximumCost, inclusively.
-	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-}
 
 func generateSecretKey() (string, error) {
 	c := 64

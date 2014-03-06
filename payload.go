@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"reflect"
 
 	"github.com/amattn/deeperror"
 )
@@ -19,10 +20,35 @@ type Payload interface {
 // Typically, these are arrays of objects designed to be deserialized into entity structs (eg []BookPayload, []AuthorPayload)
 type PayloadsMap map[string][]Payload
 
+// This will typically be serialized into a JSON formatted string
+type PayloadWrapper struct {
+	Payloads PayloadsMap `json:",omitempty"` // key is type, value is list of payloads of that type
+	ErrNo    int64       `json:",omitempty"` // will be 0 on successful responses, non-zero otherwise
+	ErrStr   string      `json:",omitempty"` // end-user appropriate error message
+	Alert    string      `json:",omitempty"` // used when the client end user needs to be alerted of something: (eg, maintenance mode, downtime, sercurity, required update, etc.)
+}
+
+//  #####
+// #     # #####  ######   ##   ##### ######
+// #       #    # #       #  #    #   #
+// #       #    # #####  #    #   #   #####
+// #       #####  #      ######   #   #
+// #     # #   #  #      #    #   #   #
+//  #####  #    # ###### #    #   #   ######
+//
+
+func NewPayloadWrapper() *PayloadWrapper {
+	// needs a leaky bucket
+	return new(PayloadWrapper)
+}
+
 func MakePayloadMapFromPayload(payload Payload) PayloadsMap {
 	return MakePayloadMapFromPayloadsList([]Payload{payload})
 }
 
+func MakePayloadMapFromPayloads(payloads ...Payload) PayloadsMap {
+	return MakePayloadMapFromPayloadsList(payloads)
+}
 func MakePayloadMapFromPayloadsList(payloadsList []Payload) PayloadsMap {
 	payloads := make(PayloadsMap)
 
@@ -38,18 +64,14 @@ func MakePayloadMapFromPayloadsList(payloadsList []Payload) PayloadsMap {
 	return payloads
 }
 
-// This will typically be serialized into a JSON formatted string
-type PayloadWrapper struct {
-	Payloads PayloadsMap `json:",omitempty"` // key is type, value is list of payloads of that type
-	ErrNo    int64       `json:",omitempty"` // will be 0 on successful responses, non-zero otherwise
-	ErrStr   string      `json:",omitempty"` // end-user appropriate error message
-	Alert    string      `json:",omitempty"` // used when the client end user needs to be alerted of something: (eg, maintenance mode, downtime, sercurity, required update, etc.)
-}
-
-func NewPayloadWrapper() *PayloadWrapper {
-	// needs a leaky bucket
-	return new(PayloadWrapper)
-}
+//  #####
+// #     # ###### #    # #####
+// #       #      ##   # #    #
+//  #####  #####  # #  # #    #
+//       # #      #  # # #    #
+// #     # #      #   ## #    #
+//  #####  ###### #    # #####
+//
 
 // for a single Enitity
 func wrapAndSendPayload(ctx *Context, payload Payload) {
@@ -75,13 +97,13 @@ func sendErrorPayload(ctx *Context, code int, errNo int64, errStr, alert string)
 	payloadWrapper.Alert = alert
 
 	if errNo != 0 {
-		ctx.Add("X-ErrorNum", fmt.Sprintf("%d", errNo))
+		ctx.AddHeader("X-ErrorNum", fmt.Sprintf("%d", errNo))
 	}
 	if len(errStr) > 1 {
-		ctx.Add("X-ErrorStr", fmt.Sprintf("%s", errStr))
+		ctx.AddHeader("X-ErrorStr", fmt.Sprintf("%s", errStr))
 	}
 	if len(alert) > 1 {
-		ctx.Add("X-Alert", fmt.Sprintf("%s", alert))
+		ctx.AddHeader("X-Alert", fmt.Sprintf("%s", alert))
 	}
 
 	writePayloadWrapper(ctx, code, payloadWrapper)
@@ -102,8 +124,8 @@ func writePayloadWrapper(ctx *Context, code int, payloadWrapper *PayloadWrapper)
 	}
 
 	ctx.written = true
-
-	ctx.Add("Content-Type", "application/json")
+	ctx.StatusCode = code
+	ctx.SetHeader(httpHeaderContentType, httpHeaderContentTypeJSON)
 
 	// This is the old way.  it doesn't give us status info.
 	// enc := json.NewEncoder(ctx.w)
@@ -116,21 +138,21 @@ func writePayloadWrapper(ctx *Context, code int, payloadWrapper *PayloadWrapper)
 	jsonBytes, jsonErr := json.Marshal(payloadWrapper)
 
 	if jsonErr != nil {
-		derr := deeperror.NewHTTPError(3589720731, "Unexpeced error encoding json", jsonErr, http.StatusInternalServerError)
+		derr := deeperror.NewHTTPError(3589720731, "Fatal Internal Output Error", jsonErr, http.StatusInternalServerError)
 		responseWriter, ok := ctx.w.(http.ResponseWriter)
 		if ok {
-			errStr := fmt.Sprintln(derr.Num, derr.EndUserMsg)
-			http.Error(responseWriter, errStr, derr.StatusCode)
+			ctx.AddHeader("X-ErrorNum", fmt.Sprintf("%d", derr.Num))
+			ctx.AddHeader("X-ErrorStr", fmt.Sprintf("%s", derr.EndUserMsg))
+			responseWriter.WriteHeader(derr.StatusCode)
+			fmt.Fprintf(responseWriter, "{\"ErrNo\":%d,\"ErrStr\":%s}", derr.Num, derr.EndUserMsg)
 		}
 		log.Println(derr)
 	} else {
 		// At this point, everything is a-ok...  just write out.
 		if rw, isResponseWriter := ctx.w.(http.ResponseWriter); isResponseWriter {
-			if code != http.StatusOK {
-				rw.WriteHeader(code)
-				ctx.StatusCode = code
-			} else {
-				ctx.StatusCode = http.StatusOK
+			rw.WriteHeader(code)
+			if len(jsonBytes) == 0 {
+				log.Println("jsonBytes", jsonBytes, ctx.R.URL)
 			}
 			bytesWritten, err := rw.Write(jsonBytes)
 			if err != nil {
@@ -143,4 +165,68 @@ func writePayloadWrapper(ctx *Context, code int, payloadWrapper *PayloadWrapper)
 	for _, postproc := range ctx.router.PostProcessors {
 		postproc.Process(ctx)
 	}
+}
+
+// ######
+// #     #   ##   #####   ####  ######
+// #     #  #  #  #    # #      #
+// ######  #    # #    #  ####  #####
+// #       ###### #####       # #
+// #       #    # #   #  #    # #
+// #       #    # #    #  ####  ######
+//
+
+type unmarshallingPayloadWrapper struct {
+	Payloads map[string][]json.RawMessage `json:",omitempty"` // key is type, value is list of payloads of that type
+	ErrNo    int64                        `json:",omitempty"` // will be 0 on successful responses, non-zero otherwise
+	ErrStr   string                       `json:",omitempty"` // end-user appropriate error message
+	Alert    string                       `json:",omitempty"` // used when the client end user needs to be alerted of something: (eg, maintenance mode, downtime, sercurity, required update, etc.)
+}
+
+func UnmarshalPayloadWrapper(jsonBytes []byte, supportedPayloads ...Payload) (*PayloadWrapper, error) {
+
+	if len(supportedPayloads) == 0 {
+		return nil, deeperror.New(2911466683, "must supply supportedPayloads", nil)
+	}
+	var upw unmarshallingPayloadWrapper
+	var pw PayloadWrapper
+	err := json.Unmarshal(jsonBytes, &upw)
+	if err != nil {
+		return nil, deeperror.New(3679523795, "Parse Error, Unexpectd format", err)
+	}
+
+	// do the easy stuff first
+	pw.ErrNo = upw.ErrNo
+	pw.ErrStr = upw.ErrStr
+	pw.Alert = upw.Alert
+	pw.Payloads = make(PayloadsMap)
+
+	payloadTypeReflecMap := make(map[string]reflect.Type)
+	for _, payload := range supportedPayloads {
+		payloadTypeReflecMap[payload.PayloadType()] = reflect.TypeOf(payload)
+	}
+
+	for pTypeString, rawJsonList := range upw.Payloads {
+		pTypeReflect := payloadTypeReflecMap[pTypeString]
+		payloadList := make([]Payload, 0, len(rawJsonList))
+		for _, rawJson := range rawJsonList {
+			pReflectValue := reflect.New(pTypeReflect)
+			structPointer := pReflectValue.Interface()
+			pld, ok := structPointer.(Payload)
+			if ok == false {
+				return nil, deeperror.New(3679523796, "Parse Error, Unexpectd payload", err)
+			}
+
+			err := json.Unmarshal(rawJson, pld)
+			if err != nil {
+				return nil, deeperror.New(3679523797, "Parse Error, Unexpectd payload", err)
+			}
+
+			payloadList = append(payloadList, pld)
+		}
+
+		pw.Payloads[pTypeString] = payloadList
+	}
+
+	return &pw, nil
 }

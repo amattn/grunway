@@ -27,11 +27,6 @@ const (
 type PayloadController interface {
 }
 
-type AuthenticatingPayloadController interface {
-	PayloadController
-	GetSecretKey(publicKey string) (secretKey string, errNum int)
-}
-
 type Router struct {
 	BasePath string
 
@@ -80,7 +75,7 @@ func (router *Router) RegisterEntity(name string, payloadController PayloadContr
 
 	router.Controllers[name] = payloadController
 
-	authenticator, _ := payloadController.(AuthenticatingPayloadController)
+	authenticator, _ := payloadController.(AuthHandler)
 
 	for i := 0; i < payloadControllerType.NumMethod(); i++ {
 
@@ -91,7 +86,7 @@ func (router *Router) RegisterEntity(name string, payloadController PayloadContr
 	}
 }
 
-func (router *Router) AddEntityRoute(entityName, controllerName, handlerName string, unknownhandler interface{}, authenticator AuthenticatingPayloadController) {
+func (router *Router) AddEntityRoute(entityName, controllerName, handlerName string, unknownhandler interface{}, authenticator AuthHandler) {
 
 	// simple first:
 	if strings.Contains(handlerName, MAGIC_HANDLER_KEYWORD) == false {
@@ -122,7 +117,7 @@ func (router *Router) AddEntityRoute(entityName, controllerName, handlerName str
 		deauthedHandlerName = handlerName[len(MAGIC_AUTH_REQUIRED_PREFIX):]
 		routePtr.RequiresAuth = true
 		if authenticator == nil {
-			log.Fatalf("1323798307 Auth required handler defined (%s), but controller (%s) does not implement AuthenticatingPayloadController", handlerName, controllerName)
+			log.Fatalf("1323798307 Auth required handler defined (%s), but controller (%s) does not implement AuthHandler", handlerName, controllerName)
 			return
 		}
 		routePtr.Authenticator = authenticator
@@ -320,7 +315,7 @@ func (router *Router) handleContext(ctx *Context, req *http.Request) {
 
 	if routePtr.RequiresAuth {
 		// log.Println("RequiresAuth = true")
-		isAuthorized, failureToAuthErrorNum := performAuth(routePtr, ctx)
+		isAuthorized, failureToAuthErrorNum := routePtr.Authenticator.PerformAuth(routePtr, ctx)
 		if isAuthorized == false {
 			ctx.SendErrorPayload(http.StatusForbidden, int64(failureToAuthErrorNum), "Forbidden")
 			return
@@ -340,9 +335,9 @@ func (router *Router) handleContext(ctx *Context, req *http.Request) {
 	} else if pMap != nil {
 		ctx.WrapAndSendPayloadsMap(pMap)
 	} else if customRtResp != nil {
-
+		customRtResp(ctx)
 	} else {
-
+		ctx.SendErrorPayload(http.StatusInternalServerError, 2302586595, "Invalid Handler response")
 	}
 
 	// 8. any post-handler stuff
