@@ -329,13 +329,14 @@ func (router *Router) handleContext(ctx *Context, req *http.Request) {
 	}
 
 	// 7. call handler method
-	rtErr, pMap, customRtResp := routePtr.Handler(ctx)
-	if rtErr != nil {
+	rhr := routePtr.Handler(ctx)
+	if rhr.rerr != nil {
+		rtErr := rhr.rerr
 		ctx.SendErrorPayload(rtErr.code, rtErr.errNo, rtErr.errStr)
-	} else if pMap != nil {
-		ctx.WrapAndSendPayloadsMap(pMap)
-	} else if customRtResp != nil {
-		customRtResp(ctx)
+	} else if rhr.pmap != nil {
+		ctx.WrapAndSendPayloadsMap(rhr.pmap)
+	} else if rhr.crr != nil {
+		rhr.crr(ctx)
 	} else {
 		ctx.SendErrorPayload(http.StatusInternalServerError, 2302586595, "Invalid Handler response")
 	}

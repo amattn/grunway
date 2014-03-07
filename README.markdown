@@ -47,19 +47,19 @@ Here is where we use a bit of reflection.  Instead of defining routes and hookin
 
 Like this:
 
-	func (bookCon *BookController) GetHandlerV1(ctx *grunway.Context) (*grunway.RouteError, grunway.PayloadsMap, grunway.CustomRouteResponse) {
+	func (bc *BookController) GetHandlerV1(ctx *grunway.Context) grunway.RouteHandlerResult {
 	   //...
 	}
-	func (bookCon *BookController) GetHandlerV2(ctx *grunway.Context) (*grunway.RouteError, grunway.PayloadsMap, grunway.CustomRouteResponse) {
+	func (bc *BookController) GetHandlerV2(ctx *grunway.Context) grunway.RouteHandlerResult {
 		//...
 	}
-	func (bookCon *BookController) GetHandlerV1Popular(ctx *grunway.Context) (*grunway.RouteError, grunway.PayloadsMap, grunway.CustomRouteResponse) {
+	func (bc *BookController) GetHandlerV1Popular(ctx *grunway.Context) grunway.RouteHandlerResult {
 	    //...
 	}
 
 The basic function signature is a `RouteHandler`:
 
-	type RouteHandler func(*Context) (*RouteError, PayloadsMap, CustomRouteResponse)
+	type RouteHandler func(*Context) RouteHandlerResult
 
 99% of the time you either return a PayloadsMap or a RouteError.  If you need special control of the response, a CustomRouteResponse is a special handler with more access to the output stream.
 
@@ -76,7 +76,7 @@ Which corresponts to http endpoints like this:
 
 Auth is a bit special that it has its own dedicated handler prefix:
 
-	func (con *WidgetController) AuthGetHandlerV1(ctx *grunway.Context) (*grunway.RouteError, grunway.PayloadsMap, grunway.CustomRouteResponse) {
+	func (wc *WidgetController) AuthGetHandlerV1(ctx *grunway.Context) grunway.RouteHandlerResult {
 	   //...
 	}
 

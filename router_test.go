@@ -25,8 +25,8 @@ func (payload AuthorPayload) PayloadType() string {
 type AuthorController struct {
 }
 
-func (self *AuthorController) GetHandlerV1(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return ctx.ReturnOK()
+func (self *AuthorController) GetHandlerV1(ctx *Context) RouteHandlerResult {
+	return ctx.MakeRouteHandlerResultOk()
 }
 
 type BookPayload struct {
@@ -50,42 +50,51 @@ func (ctrlr *BookController) PerformAuth(routePtr *Route, ctx *Context) (authent
 	return false, 3220239796
 }
 
-func (self *BookController) GetHandlerV1(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
+func (self *BookController) GetHandlerV1(ctx *Context) RouteHandlerResult {
 
 	var book BookPayload
 	book.PKey = 1
 	book.Name = "The Greatest Works of All Time"
 	book.AuthorId = 1
 
-	return nil, MakePayloadMapFromPayload(book), nil
+	return ctx.MakeRouteHandlerResultPayloads(book)
 }
 
-func (self *BookController) GetHandlerV2(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return ctx.ReturnOK()
+func (self *BookController) GetHandlerV2(ctx *Context) RouteHandlerResult {
+	return ctx.MakeRouteHandlerResultOk()
 }
-func (self *BookController) GetHandlerV003(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return ctx.ReturnOK()
+func (self *BookController) GetHandlerV003(ctx *Context) RouteHandlerResult {
+	return ctx.MakeRouteHandlerResultOk()
 }
-func (self *BookController) GetHandlerV018(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return ctx.ReturnOK()
+func (self *BookController) GetHandlerV018(ctx *Context) RouteHandlerResult {
+	return ctx.MakeRouteHandlerResultOk()
 }
-func (self *BookController) PostHandlerV1(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return ctx.ReturnOK()
+func (self *BookController) PostHandlerV1(ctx *Context) RouteHandlerResult {
+	return ctx.MakeRouteHandlerResultOk()
 }
-func (self *BookController) PutHandlerV1(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return ctx.ReturnOK()
+func (self *BookController) PutHandlerV1(ctx *Context) RouteHandlerResult {
+	return ctx.MakeRouteHandlerResultOk()
 }
-func (self *BookController) DeleteHandlerV1(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return ctx.ReturnOK()
+func (self *BookController) DeleteHandlerV1(ctx *Context) RouteHandlerResult {
+	return ctx.MakeRouteHandlerResultOk()
 }
-func (self *BookController) GetHandlerV1All(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return ctx.ReturnOK()
+func (self *BookController) GetHandlerV1All(ctx *Context) RouteHandlerResult {
+	var book BookPayload
+	book.PKey = 1
+	book.Name = "Some Great Works of All Time"
+	book.AuthorId = 1
+	var book2 BookPayload
+	book2.PKey = 2
+	book2.Name = "More Great Works of All Time"
+	book2.AuthorId = 1
+
+	return ctx.MakeRouteHandlerResultPayloads(book, book2)
 }
-func (self *BookController) GetHandlerV1Popular(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return ctx.ReturnOK()
+func (self *BookController) GetHandlerV1Popular(ctx *Context) RouteHandlerResult {
+	return ctx.MakeRouteHandlerResultOk()
 }
-func (self *BookController) AuthGetHandlerV1Login(ctx *Context) (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return ctx.ReturnOK()
+func (self *BookController) AuthGetHandlerV1Login(ctx *Context) RouteHandlerResult {
+	return ctx.MakeRouteHandlerResultOk()
 }
 
 func makeLibrary(t *testing.T) *Router {
@@ -146,17 +155,39 @@ func TestRouter(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer response.Body.Close()
+		bodyBytes, _ := ioutil.ReadAll(response.Body)
+
 		// t.Log("starting getURLAndStatusCodes", urlsuffix, expectedStatusCode, response.ContentLength)
 
 		if response.StatusCode != expectedStatusCode {
-
 			t.Error("GET", urlsuffix, "expected ", expectedStatusCode, ", got", response.StatusCode)
-			body, _ := ioutil.ReadAll(response.Body)
-			t.Error("response body:", string(body))
+			t.Error("response body:", string(bodyBytes))
 		}
 
 		commonTest(t, response, urlsuffix)
 		// t.Log("ending getURLAndStatusCodes", ts.URL+urlsuffix)
+
+		// extra test for /api/v1/book/all
+		if urlsuffix == "/api/v1/book/all" {
+			pw, err := UnmarshalPayloadWrapper(bodyBytes, BookPayload{}, AuthorPayload{})
+			if err != nil {
+				t.Error("unexpected error returned from UnmarshalPayloadWrapper", err)
+			}
+			t.Logf("pw %+v", pw)
+
+			bookList, ok := pw.Payloads["book"]
+			if ok == false {
+				t.Errorf("804607066 expected book payloads for /api/v1/book/all")
+			} else {
+				if len(bookList) != 2 {
+					t.Errorf("804607067 expected 2 book payloads for /api/v1/book/all")
+					for i, bookPayload := range bookList {
+						t.Logf("i:%d bookPayload %+v", i, bookPayload)
+					}
+				} else {
+				}
+			}
+		}
 	}
 
 	postURLAndStatusCodes := map[string]int{

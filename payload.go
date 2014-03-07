@@ -42,26 +42,18 @@ func NewPayloadWrapper() *PayloadWrapper {
 	return new(PayloadWrapper)
 }
 
-func MakePayloadMapFromPayload(payload Payload) PayloadsMap {
-	return MakePayloadMapFromPayloadsList([]Payload{payload})
-}
-
-func MakePayloadMapFromPayloads(payloads ...Payload) PayloadsMap {
-	return MakePayloadMapFromPayloadsList(payloads)
-}
-func MakePayloadMapFromPayloadsList(payloadsList []Payload) PayloadsMap {
-	payloads := make(PayloadsMap)
-
+func MakePayloadMapFromPayloads(payloadsList ...Payload) PayloadsMap {
+	pmap := make(PayloadsMap)
 	for _, payload := range payloadsList {
 		ptype := payload.PayloadType()
-		plist, exists := payloads[ptype]
+		plist, exists := pmap[ptype]
 		if exists == true {
-			plist = append(plist, payload)
+			pmap[ptype] = append(plist, payload)
 		} else {
-			payloads[ptype] = []Payload{payload}
+			pmap[ptype] = []Payload{payload}
 		}
 	}
-	return payloads
+	return pmap
 }
 
 //  #####
@@ -80,7 +72,7 @@ func wrapAndSendPayload(ctx *Context, payload Payload) {
 
 // for a slice of Entities
 func wrapAndSendPayloadsList(ctx *Context, payloadsList []Payload) {
-	wrapAndSendPayloadsMap(ctx, MakePayloadMapFromPayloadsList(payloadsList))
+	wrapAndSendPayloadsMap(ctx, MakePayloadMapFromPayloads(payloadsList...))
 }
 
 func wrapAndSendPayloadsMap(ctx *Context, pldsMap PayloadsMap) {

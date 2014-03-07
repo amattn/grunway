@@ -41,26 +41,59 @@ func (c *Context) SetHeader(key, value string) {
 	c.w.Header().Set(key, value)
 }
 
-// conveninece wrapper, designed to generate return values inside a Route Handler
-func (c *Context) ReturnRouteError(code int, errNo int64, errStr string) (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return NewRouteError(code, errNo, errStr), nil, nil
-}
+//  #####
+// #     # #####   ##   #    # #####    ##   #####  #####
+// #         #    #  #  ##   # #    #  #  #  #    # #    #
+//  #####    #   #    # # #  # #    # #    # #    # #    #
+//       #   #   ###### #  # # #    # ###### #####  #    #
+// #     #   #   #    # #   ## #    # #    # #   #  #    #
+//  #####    #   #    # #    # #####  #    # #    # #####
+//
+// ######
+// #     # ######  ####  #    # #      #####  ####
+// #     # #      #      #    # #        #   #
+// ######  #####   ####  #    # #        #    ####
+// #   #   #           # #    # #        #        #
+// #    #  #      #    # #    # #        #   #    #
+// #     # ######  ####   ####  ######   #    ####
+//
 
-// conveninece wrapper, designed to generate return values inside a Route Handler
-func (c *Context) ReturnPayload(payload Payload) (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return nil, MakePayloadMapFromPayload(payload), nil
+func (c *Context) MakeRouteHandlerResultError(code int, errNo int64, errStr string) RouteHandlerResult {
+	return RouteHandlerResult{NewRouteError(code, errNo, errStr), nil, nil}
 }
-
-// conveninece wrapper, designed to generate return values inside a Route Handler
-func (c *Context) ReturnCustom(crh CustomRouteResponse) (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return nil, nil, crh
+func (c *Context) MakeRouteHandlerResultAlert(code int, errNo int64, alert string) RouteHandlerResult {
+	return c.MakeRouteHandlerResultCustom(func(ctx *Context) {
+		sendErrorPayload(ctx, code, errNo, "", alert)
+	})
 }
-
-func (c *Context) ReturnOK() (*RouteError, PayloadsMap, CustomRouteResponse) {
-	return c.ReturnCustom(func(ctx *Context) {
+func (c *Context) MakeRouteHandlerResultPayloads(payloads ...Payload) RouteHandlerResult {
+	return RouteHandlerResult{nil, MakePayloadMapFromPayloads(payloads...), nil}
+}
+func (c *Context) MakeRouteHandlerResultCustom(crh CustomRouteResponse) RouteHandlerResult {
+	return RouteHandlerResult{nil, nil, crh}
+}
+func (c *Context) MakeRouteHandlerResultOk() RouteHandlerResult {
+	return c.MakeRouteHandlerResultCustom(func(ctx *Context) {
 		sendOkPayload(ctx)
 	})
 }
+
+//  #####
+// #     # #    #  ####  #####  ####  #    #
+// #       #    # #        #   #    # ##  ##
+// #       #    #  ####    #   #    # # ## #
+// #       #    #      #   #   #    # #    #
+// #     # #    # #    #   #   #    # #    #
+//  #####   ####   ####    #    ####  #    #
+//
+// ######
+// #     # ######  ####  #    # #      #####  ####
+// #     # #      #      #    # #        #   #
+// ######  #####   ####  #    # #        #    ####
+// #   #   #           # #    # #        #        #
+// #    #  #      #    # #    # #        #   #    #
+// #     # ######  ####   ####  ######   #    ####
+//
 
 func (ctx *Context) WrapAndSendPayload(payload Payload) {
 	if payload == nil {

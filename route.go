@@ -36,24 +36,6 @@ type Route struct {
 	ControllerName string // not actually used except for logging and debugging
 }
 
-type RouteHandler func(*Context) (*RouteError, PayloadsMap, CustomRouteResponse)
-
-type RouteError struct {
-	code   int    // HTTP Status code
-	errNo  int64  // Internal error number
-	errStr string // Client Visible error message
-}
-
-func NewRouteError(code int, errNo int64, errStr string) *RouteError {
-	rerr := new(RouteError)
-	rerr.code = code
-	rerr.errNo = errNo
-	rerr.errStr = errStr
-	return rerr
-}
-
-type CustomRouteResponse func(*Context)
-
 func parseVersionFromPrefixlessHandlerName(versionActionHandlerName string) (vStr string, action string) {
 	re := regexp.MustCompile("^V([0-9]+)(.*)")
 	matches := re.FindStringSubmatch(versionActionHandlerName)
@@ -92,7 +74,7 @@ func ValidateHandlerName(handler interface{}) (isValid bool, reason string) {
 func ValidateHandler(unknownHandler interface{}) (isValid bool, reason string, handler RouteHandler) {
 
 	// We have to do some type gymnastics here.  first check the if the method matches the raw function type...
-	validHandler, ok := unknownHandler.(func(*Context) (*RouteError, PayloadsMap, CustomRouteResponse))
+	validHandler, ok := unknownHandler.(func(*Context) RouteHandlerResult)
 
 	if ok == false {
 		return false, "wrong function type, expected function type of RouteHandler", nil
