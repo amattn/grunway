@@ -110,7 +110,11 @@ func makeLibrary(t *testing.T) *Router {
 }
 
 func TestRouterSetup(t *testing.T) {
-	makeLibrary(t)
+	// basically, just don't panic or whatnot...
+	routerPtr := makeLibrary(t)
+	if routerPtr == nil {
+		t.Fatal("makeLibrary should not return nil")
+	}
 }
 
 func TestRouter(t *testing.T) {

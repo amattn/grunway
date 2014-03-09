@@ -37,9 +37,11 @@ type PayloadWrapper struct {
 //  #####  #    # ###### #    #   #   ######
 //
 
-func NewPayloadWrapper() *PayloadWrapper {
+func NewPayloadWrapper(payloadsList ...Payload) *PayloadWrapper {
 	// needs a leaky bucket
-	return new(PayloadWrapper)
+	pw := new(PayloadWrapper)
+	pw.Payloads = MakePayloadMapFromPayloads(payloadsList...)
+	return pw
 }
 
 func MakePayloadMapFromPayloads(payloadsList ...Payload) PayloadsMap {
@@ -75,9 +77,9 @@ func wrapAndSendPayloadsList(ctx *Context, payloadsList []Payload) {
 	wrapAndSendPayloadsMap(ctx, MakePayloadMapFromPayloads(payloadsList...))
 }
 
-func wrapAndSendPayloadsMap(ctx *Context, pldsMap PayloadsMap) {
+func wrapAndSendPayloadsMap(ctx *Context, pmap PayloadsMap) {
 	payloadWrapper := NewPayloadWrapper()
-	payloadWrapper.Payloads = pldsMap
+	payloadWrapper.Payloads = pmap
 	writePayloadWrapper(ctx, http.StatusOK, payloadWrapper)
 }
 
@@ -127,7 +129,7 @@ func writePayloadWrapper(ctx *Context, code int, payloadWrapper *PayloadWrapper)
 	// counting buffer is more efficient, but I don't need the docs to implement the eoncode to bytes.
 	// consider a counting buffer if memory usage or garbage collection pauses start hurting.
 
-	jsonBytes, jsonErr := json.Marshal(payloadWrapper)
+	jsonBytes, jsonErr := MarshallPayloadWrapper(payloadWrapper)
 
 	if jsonErr != nil {
 		derr := deeperror.NewHTTPError(3589720731, "Fatal Internal Output Error", jsonErr, http.StatusInternalServerError)
@@ -159,13 +161,27 @@ func writePayloadWrapper(ctx *Context, code int, payloadWrapper *PayloadWrapper)
 	}
 }
 
+//  #####
+// #     # ###### #####  #   ##   #      # ###### ######
+// #       #      #    # #  #  #  #      #     #  #
+//  #####  #####  #    # # #    # #      #    #   #####
+//       # #      #####  # ###### #      #   #    #
+// #     # #      #   #  # #    # #      #  #     #
+//  #####  ###### #    # # #    # ###### # ###### ######
+//
+
+func MarshallPayloadWrapper(pw *PayloadWrapper) ([]byte, error) {
+	// Fairly simple.  just a thin wrapper to make testing easier...
+	return json.Marshal(pw)
+}
+
 // ######
-// #     #   ##   #####   ####  ######
-// #     #  #  #  #    # #      #
-// ######  #    # #    #  ####  #####
-// #       ###### #####       # #
-// #       #    # #   #  #    # #
-// #       #    # #    #  ####  ######
+// #     # ######  ####  ###### #####  #   ##   #      # ###### ######
+// #     # #      #      #      #    # #  #  #  #      #     #  #
+// #     # #####   ####  #####  #    # # #    # #      #    #   #####
+// #     # #           # #      #####  # ###### #      #   #    #
+// #     # #      #    # #      #   #  # #    # #      #  #     #
+// ######  ######  ####  ###### #    # # #    # ###### # ###### ######
 //
 
 type unmarshallingPayloadWrapper struct {
