@@ -2,15 +2,18 @@ package grunway
 
 import (
 	"encoding/json"
-	"github.com/amattn/deeperror"
 	"log"
 	"net/http"
+
+	"github.com/amattn/deeperror"
 )
 
 type Context struct {
-	R *http.Request
+	Req *http.Request // original http request
+	End Endpoint      // parsed endpoint information
+
+	// exposing the responseWriter tends to induce bugs.  We keep this internal for now.
 	w http.ResponseWriter
-	E Endpoint
 
 	// router
 	router *Router
@@ -23,22 +26,23 @@ type Context struct {
 	postware   map[string]interface{}
 
 	// only populated after a write
-	written       bool
-	StatusCode    int
-	ContentLength int
+
+	written       bool // true after a write, false before.  Used to prevent "double writes".
+	StatusCode    int  // The http status code written out. Only populated after a write.
+	ContentLength int  // The number of bytes written out. Only populated after a write.
 }
 
-func (c *Context) AddHeader(key, value string) {
-	c.w.Header().Add(key, value)
+func (ctx *Context) AddHeader(key, value string) {
+	ctx.w.Header().Add(key, value)
 }
-func (c *Context) DelHeader(key string) {
-	c.w.Header().Del(key)
+func (ctx *Context) DelHeader(key string) {
+	ctx.w.Header().Del(key)
 }
-func (c *Context) GetHeader(key string) string {
-	return c.w.Header().Get(key)
+func (ctx *Context) GetHeader(key string) string {
+	return ctx.w.Header().Get(key)
 }
-func (c *Context) SetHeader(key, value string) {
-	c.w.Header().Set(key, value)
+func (ctx *Context) SetHeader(key, value string) {
+	ctx.w.Header().Set(key, value)
 }
 
 //  #####
@@ -58,23 +62,23 @@ func (c *Context) SetHeader(key, value string) {
 // #     # ######  ####   ####  ######   #    ####
 //
 
-func (c *Context) MakeRouteHandlerResultError(code int, errNo int64, errStr string) RouteHandlerResult {
+func (ctx *Context) MakeRouteHandlerResultError(code int, errNo int64, errStr string) RouteHandlerResult {
 	return RouteHandlerResult{NewRouteError(code, errNo, errStr), nil, nil}
 }
-func (c *Context) MakeRouteHandlerResultAlert(code int, errNo int64, alert string) RouteHandlerResult {
-	return c.MakeRouteHandlerResultCustom(func(ctx *Context) {
-		sendErrorPayload(ctx, code, errNo, "", alert)
+func (ctx *Context) MakeRouteHandlerResultAlert(code int, errNo int64, alert string) RouteHandlerResult {
+	return ctx.MakeRouteHandlerResultCustom(func(innerCtx *Context) {
+		sendErrorPayload(innerCtx, code, errNo, "", alert)
 	})
 }
-func (c *Context) MakeRouteHandlerResultPayloads(payloads ...Payload) RouteHandlerResult {
+func (ctx *Context) MakeRouteHandlerResultPayloads(payloads ...Payload) RouteHandlerResult {
 	return RouteHandlerResult{nil, MakePayloadMapFromPayloads(payloads...), nil}
 }
-func (c *Context) MakeRouteHandlerResultCustom(crh CustomRouteResponse) RouteHandlerResult {
-	return RouteHandlerResult{nil, nil, crh}
+func (ctx *Context) MakeRouteHandlerResultCustom(crr CustomRouteResponse) RouteHandlerResult {
+	return RouteHandlerResult{nil, nil, crr}
 }
-func (c *Context) MakeRouteHandlerResultOk() RouteHandlerResult {
-	return c.MakeRouteHandlerResultCustom(func(ctx *Context) {
-		sendOkPayload(ctx)
+func (ctx *Context) MakeRouteHandlerResultOk() RouteHandlerResult {
+	return ctx.MakeRouteHandlerResultCustom(func(innerCtx *Context) {
+		sendOkPayload(innerCtx)
 	})
 }
 
@@ -114,24 +118,24 @@ func (ctx *Context) WrapAndSendPayloadsMap(payloads PayloadsMap) {
 }
 
 // Error
-func (c *Context) SendErrorPayload(code int, errNo int64, errStr string) {
+func (ctx *Context) SendErrorPayload(code int, errNo int64, errStr string) {
 	enduserErrMsg := errStr
 	if len(errStr) == 0 {
 		enduserErrMsg = http.StatusText(code)
 	}
-	sendErrorPayload(c, code, errNo, enduserErrMsg, "")
+	sendErrorPayload(ctx, code, errNo, enduserErrMsg, "")
 }
 
 // Alert payloads are designed as a general notification service for clients (ie client must upgrade, server is in maint mode, etc.)
-func (c *Context) SendAlertPayload(code int, errNo int64, errStr, alert string) {
-	sendErrorPayload(c, code, errNo, errStr, alert)
+func (ctx *Context) SendAlertPayload(code int, errNo int64, errStr, alert string) {
+	sendErrorPayload(ctx, code, errNo, errStr, alert)
 }
 
-func (c *Context) DecodeResponseBodyOrSendError(pc PayloadController, payloadReference interface{}) interface{} {
-	requestBody := c.R.Body
+func (ctx *Context) DecodeResponseBodyOrSendError(pc PayloadController, payloadReference interface{}) interface{} {
+	requestBody := ctx.Req.Body
 	if requestBody == nil {
 		errStr := BadRequestPrefix + ": Expected non-empty body"
-		c.SendErrorPayload(http.StatusBadRequest, 3003399819, errStr)
+		ctx.SendErrorPayload(http.StatusBadRequest, 3003399819, errStr)
 		return nil
 	}
 	defer requestBody.Close()
@@ -143,7 +147,7 @@ func (c *Context) DecodeResponseBodyOrSendError(pc PayloadController, payloadRef
 		errStr := BadRequestPrefix + ": Cannot parse body"
 		derr := deeperror.New(3005488054, errStr, err)
 		log.Println("derr", derr)
-		c.SendErrorPayload(http.StatusBadRequest, 3005488054, errStr)
+		ctx.SendErrorPayload(http.StatusBadRequest, 3005488054, errStr)
 		return nil
 	}
 

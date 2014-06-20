@@ -248,12 +248,12 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	ctx := new(Context) // needs a leakybucket
 	ctx.w = w
-	ctx.R = req
+	ctx.Req = req
 	ctx.router = router
 
 	// 2. parse the route
 	endpoint, clientDeepErr, serverDeepErr := parsePath(req.URL, router.BasePath)
-	ctx.E = endpoint
+	ctx.End = endpoint
 
 	if clientDeepErr != nil {
 		// log.Println("clientDeepErr", clientDeepErr)
@@ -282,9 +282,9 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (router *Router) handleContext(ctx *Context, req *http.Request) {
 
 	// 3. lookup the handler method
-	routePtr, err := getRoute(router.RouteMap, req.Method, ctx.E.VersionStr, ctx.E.EntityName, ctx.E.Action)
+	routePtr, err := getRoute(router.RouteMap, req.Method, ctx.End.VersionStr, ctx.End.EntityName, ctx.End.Action)
 	if err != nil || routePtr == nil {
-		// log.Println("404 routekey", routeKey(req.Method, ctx.E.VersionStr, ctx.E.EntityName, ctx.E.Action))
+		// log.Println("404 routekey", routeKey(req.Method, ctx.End.VersionStr, ctx.End.EntityName, ctx.End.Action))
 		// log.Printf("404 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, ctx.E, routePtr, err)
 		// http.NotFound(w, req)
 		ctx.SendErrorPayload(http.StatusNotFound, NotFoundErrNo, "404 Not Found")
@@ -292,12 +292,12 @@ func (router *Router) handleContext(ctx *Context, req *http.Request) {
 	}
 
 	// log.Println("req.Method", req.Method)
-	// log.Println("ctx.E.PrimaryKey", ctx.E.PrimaryKey)
-	// log.Println("ctx.E.Extras", ctx.E.Extras)
+	// log.Println("ctx.End.PrimaryKey", ctx.End.PrimaryKey)
+	// log.Println("ctx.End.Extras", ctx.End.Extras)
 
 	// 4. Some basic validation
 
-	if req.Method == "POST" && ctx.E.PrimaryKey != 0 && len(ctx.E.Extras) == 1 {
+	if req.Method == "POST" && ctx.End.PrimaryKey != 0 && len(ctx.End.Extras) == 1 {
 		// log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, ctx.E, routePtr, err)
 		// don't use http.Error!  use our sendErrorPayload instead
 		// http.Error(w, BadRequestExtraneousPrimaryKeyPrefix, http.StatusBadRequest)
@@ -305,7 +305,7 @@ func (router *Router) handleContext(ctx *Context, req *http.Request) {
 		return
 	}
 	// Read and update require primary key
-	if (req.Method == "GET" || req.Method == "PATCH" || req.Method == "PUT") && ctx.E.PrimaryKey == 0 && len(ctx.E.Extras) == 0 {
+	if (req.Method == "GET" || req.Method == "PATCH" || req.Method == "PUT") && ctx.End.PrimaryKey == 0 && len(ctx.End.Extras) == 0 {
 		// log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, ctx.E, routePtr, err)
 		ctx.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix)
 		return

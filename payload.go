@@ -146,7 +146,7 @@ func writePayloadWrapper(ctx *Context, code int, payloadWrapper *PayloadWrapper)
 		if rw, isResponseWriter := ctx.w.(http.ResponseWriter); isResponseWriter {
 			rw.WriteHeader(code)
 			if len(jsonBytes) == 0 {
-				log.Println("jsonBytes", jsonBytes, ctx.R.URL)
+				log.Println("jsonBytes", jsonBytes, ctx.Req.URL)
 			}
 			bytesWritten, err := rw.Write(jsonBytes)
 			if err != nil {

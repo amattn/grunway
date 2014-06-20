@@ -14,13 +14,13 @@ type CreatePerformer interface {
 
 func StandardCreateHandler(controller CreatePerformer, ctx *Context, createRequestPayload Payload) RouteHandlerResult {
 	// Get the request
-	requestBody := ctx.R.Body
+	requestBody := ctx.Req.Body
 	if requestBody == nil {
 		return ctx.MakeRouteHandlerResultError(http.StatusBadRequest, 3370318075, BadRequestPrefix+"Expected non-empty body")
 	}
 	defer requestBody.Close()
 
-	if ctx.E.PrimaryKey != 0 {
+	if ctx.End.PrimaryKey != 0 {
 		return ctx.MakeRouteHandlerResultError(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix+" Cannot set primary key")
 	}
 
@@ -72,13 +72,13 @@ func StandardCreateHandler(controller CreatePerformer, ctx *Context, createReque
 //
 
 type UpdatePerformer interface {
-	UpdatePayloadIsValid(c *Context, updateRequestPayload Payload) *deeperror.DeepError
-	PerformUpdate(c *Context, updateRequestPayload Payload) (responsePayload Payload, derr *deeperror.DeepError)
+	UpdatePayloadIsValid(ctx *Context, updateRequestPayload Payload) *deeperror.DeepError
+	PerformUpdate(ctx *Context, updateRequestPayload Payload) (responsePayload Payload, derr *deeperror.DeepError)
 }
 
 func StandardUpdateHandler(controller UpdatePerformer, ctx *Context, updateRequestPayload Payload) RouteHandlerResult {
 	// Get the request
-	requestBody := ctx.R.Body
+	requestBody := ctx.Req.Body
 	if requestBody == nil {
 		return ctx.MakeRouteHandlerResultError(http.StatusBadRequest, 3851489100, BadRequestPrefix+"Expected non-empty body")
 	}
@@ -138,7 +138,7 @@ type DeleteValidator interface {
 }
 
 func StandardDeleteHandler(ctx *Context, controller DeletePerformer) {
-	if ctx.E.PrimaryKey <= 0 {
+	if ctx.End.PrimaryKey <= 0 {
 		ctx.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestPrefix)
 		return
 	}
