@@ -73,12 +73,40 @@ func (ctx *Context) MakeRouteHandlerResultAlert(code int, errNo int64, alert str
 func (ctx *Context) MakeRouteHandlerResultPayloads(payloads ...Payload) RouteHandlerResult {
 	return RouteHandlerResult{nil, MakePayloadMapFromPayloads(payloads...), nil}
 }
+func (ctx *Context) MakeRouteHandlerResultGenericJSON(v interface{}) RouteHandlerResult {
+	jsonBytes, err := json.Marshal(v)
+	code := http.StatusOK
+	if err != nil {
+		code = http.StatusInternalServerError
+		return RouteHandlerResult{NewRouteError(code, 3913952842, "Internal Server Error"), nil, nil}
+	} else {
+		return RouteHandlerResult{nil, nil, func(innerCtx *Context) {
+			if rw, isResponseWriter := innerCtx.w.(http.ResponseWriter); isResponseWriter {
+				rw.WriteHeader(code)
+				if len(jsonBytes) == 0 {
+					log.Println("jsonBytes", jsonBytes, innerCtx.Req.URL)
+				}
+				bytesWritten, err := rw.Write(jsonBytes)
+				if err != nil {
+					log.Println("3952513088 WRITE ERROR", err)
+				}
+				innerCtx.ContentLength = bytesWritten
+			}
+		}}
+	}
+}
 func (ctx *Context) MakeRouteHandlerResultCustom(crr CustomRouteResponse) RouteHandlerResult {
 	return RouteHandlerResult{nil, nil, crr}
 }
 func (ctx *Context) MakeRouteHandlerResultOk() RouteHandlerResult {
 	return ctx.MakeRouteHandlerResultCustom(func(innerCtx *Context) {
 		sendOkPayload(innerCtx)
+	})
+}
+func (ctx *Context) MakeRouteHandlerResultNotFound(errNo int64) RouteHandlerResult {
+	return ctx.MakeRouteHandlerResultCustom(func(innerCtx *Context) {
+		log.Println("4224530591 MakeRouteHandlerResultCustom")
+		sendNotFoundPayload(innerCtx, errNo)
 	})
 }
 

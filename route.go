@@ -42,7 +42,10 @@ func parseVersionFromPrefixlessHandlerName(versionActionHandlerName string) (vSt
 	// log.Printf("%q\n", matches)
 
 	if len(matches) < 3 {
-		log.Fatalln("2457509067 Regular Expression failure.  Please file a bug")
+		// log.Println("2457509067", versionActionHandlerName)
+		// log.Fatalln("2457509067 Regular Expression failure.  Please file a bug")
+		log.Println("2457509067 Failed to parse V<#><Action> for", versionActionHandlerName)
+		return "", ""
 	}
 
 	vStr = matches[1]

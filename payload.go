@@ -105,8 +105,15 @@ func sendErrorPayload(ctx *Context, code int, errNo int64, errStr, alert string)
 
 // Ok payloadWrapper is just a json dict w/ one kv: ErrNo == 0
 func sendOkPayload(ctx *Context) {
+	writePayloadWrapper(ctx, http.StatusOK, NewPayloadWrapper())
+}
+
+// NotFound payloadWrapper is just a json dict w/  kv: ErrNo == <errNo>, ErrStr = "Not Found"
+func sendNotFoundPayload(ctx *Context, errNo int64) {
 	payloadWrapper := NewPayloadWrapper()
-	writePayloadWrapper(ctx, http.StatusOK, payloadWrapper)
+	payloadWrapper.ErrNo = errNo
+	payloadWrapper.ErrStr = "Not Found"
+	writePayloadWrapper(ctx, http.StatusNotFound, payloadWrapper)
 }
 
 // All output goes through here.

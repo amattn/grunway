@@ -146,6 +146,7 @@ func (router *Router) AddEntityRoute(entityName, controllerName, handlerName str
 		versionActionHandlerName = deauthedHandlerName[len(MAGIC_HEAD_HANDLER_PREFIX):]
 	default:
 		// skip... it's not a known prefix
+		log.Println("1860816435 Skipping Route:", entityName, controllerName, handlerName)
 		return
 	}
 
@@ -159,6 +160,7 @@ func (router *Router) AddEntityRoute(entityName, controllerName, handlerName str
 
 	versionStr, action := parseVersionFromPrefixlessHandlerName(versionActionHandlerName)
 	if versionStr == "" {
+		log.Println("1259486570 Skipping Route:", entityName, controllerName, handlerName)
 		// skip... invalid prefix
 		return
 	}
