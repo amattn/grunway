@@ -81,8 +81,11 @@ func (router *Router) RegisterEntity(name string, payloadController PayloadContr
 
 		potentialHandlerMethod := payloadControllerType.Method(i)
 		potentialHandlerName := potentialHandlerMethod.Name
-		unknownhandler := payloadControllerValue.MethodByName(potentialHandlerName).Interface()
-		router.AddEntityRoute(name, payloadControllerType.String(), potentialHandlerName, unknownhandler, authenticator)
+		if len(potentialHandlerName) > 0 && potentialHandlerName[0] == strings.ToUpper(potentialHandlerName)[0] {
+			// skip unexported methods
+			unknownhandler := payloadControllerValue.MethodByName(potentialHandlerName).Interface()
+			router.AddEntityRoute(name, payloadControllerType.String(), potentialHandlerName, unknownhandler, authenticator)
+		}
 	}
 }
 
