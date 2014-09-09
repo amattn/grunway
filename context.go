@@ -2,6 +2,7 @@ package grunway
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 
@@ -11,6 +12,10 @@ import (
 type Context struct {
 	Req *http.Request // original http request
 	End Endpoint      // parsed endpoint information
+
+	// only populated after a call to ctx.RequestBody()
+	cachedRequestBody      []byte
+	cachedRequestBodyError error
 
 	// exposing the responseWriter tends to induce bugs.  We keep this internal for now.
 	w http.ResponseWriter
@@ -43,6 +48,18 @@ func (ctx *Context) GetHeader(key string) string {
 }
 func (ctx *Context) SetHeader(key, value string) {
 	ctx.w.Header().Set(key, value)
+}
+
+func (ctx *Context) RequestBody() ([]byte, error) {
+	if ctx.cachedRequestBody != nil {
+		return ctx.cachedRequestBody, nil
+	}
+	if ctx.cachedRequestBodyError != nil {
+		return nil, ctx.cachedRequestBodyError
+	}
+
+	ctx.cachedRequestBody, ctx.cachedRequestBodyError = ioutil.ReadAll(ctx.Req.Body)
+	return ctx.cachedRequestBody, ctx.cachedRequestBodyError
 }
 
 //  #####
