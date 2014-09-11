@@ -122,7 +122,6 @@ func (ctx *Context) MakeRouteHandlerResultOk() RouteHandlerResult {
 }
 func (ctx *Context) MakeRouteHandlerResultNotFound(errNo int64) RouteHandlerResult {
 	return ctx.MakeRouteHandlerResultCustom(func(innerCtx *Context) {
-		log.Println("4224530591 MakeRouteHandlerResultCustom")
 		sendNotFoundPayload(innerCtx, errNo)
 	})
 }
