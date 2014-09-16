@@ -9,9 +9,8 @@ type RouteHandlerResult struct {
 }
 
 type RouteError struct {
-	code   int    // HTTP Status code
-	errNo  int64  // Internal error number
-	errStr string // Client Visible error message
+	statusCode int // HTTP Status code
+	errorInfo  ErrorInfo
 }
 
 type CustomRouteResponse func(*Context)
@@ -25,10 +24,9 @@ type CustomRouteResponse func(*Context)
 // ####### #    # #    #  ####  #    #
 //
 
-func NewRouteError(code int, errNo int64, errStr string) *RouteError {
+func NewRouteError(code int, errInfo ErrorInfo) *RouteError {
 	rerr := new(RouteError)
-	rerr.code = code
-	rerr.errNo = errNo
-	rerr.errStr = errStr
+	rerr.statusCode = code
+	rerr.errorInfo = errInfo
 	return rerr
 }

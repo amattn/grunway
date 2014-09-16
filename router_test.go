@@ -284,13 +284,13 @@ func TestPayload(t *testing.T) {
 	}
 
 	//check errNo == 0
-	if pw.ErrNo != 0 {
-		t.Errorf("918188683 expected non-zero ErrStr, got %d\npayload:%+v", pw.ErrNo, pw)
+	if pw.ErrorNumber != 0 {
+		t.Errorf("918188683 expected non-zero ErrorMessage, got %d\npayload:%+v", pw.ErrorNumber, pw)
 	}
 	//check pk matches expected,
 
 	if len(pw.Payloads) != 1 {
-		t.Errorf("918188684 expected 1 payloadType, got %v\npayload:%+v", pw.ErrStr, pw)
+		t.Errorf("918188684 expected 1 payloadType, got %v\npayload:%+v", pw.ErrorMessage, pw)
 
 	}
 

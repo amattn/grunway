@@ -10,14 +10,14 @@ import (
 )
 
 const (
-	NotFoundPrefix                      = "404 Not Found"
-	NotFoundErrNo                       = 4040000404
-	BadRequestPrefix                    = "400 Bad Request"
-	BadRequestErrNo                     = 4000000000
-	BadRequestSyntaxErrorPrefix         = BadRequestPrefix + ": Syntax Error"
-	BadRequestSyntaxErrorErrNo          = 4000000001
-	BadRequestMissingPrimaryKeyErrNo    = 4000000002
-	BadRequestExtraneousPrimaryKeyErrNo = 4000000003
+	NotFoundPrefix                            = "404 Not Found"
+	NotFoundErrorNumber                       = 4040000404
+	BadRequestPrefix                          = "400 Bad Request"
+	BadRequestErrorNumber                     = 4000000000
+	BadRequestSyntaxErrorPrefix               = BadRequestPrefix + ": Syntax Error"
+	BadRequestSyntaxErrorErrorNumber          = 4000000001
+	BadRequestMissingPrimaryKeyErrorNumber    = 4000000002
+	BadRequestExtraneousPrimaryKeyErrorNumber = 4000000003
 	// BadRequestMissingPrimaryKeyPrefix    = BadRequestPrefix + ": Missing Id"
 	// BadRequestExtraneousPrimaryKeyPrefix = BadRequestPrefix + ": Extraneous Id"
 
@@ -266,7 +266,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if clientDeepErr.StatusCode > 299 && clientDeepErr.StatusCode < 999 {
 			code = clientDeepErr.StatusCode
 		}
-		ctx.SendErrorPayload(code, clientDeepErr.Num, fmt.Sprintf("%d %s (err code: %d)", code, BadRequestSyntaxErrorPrefix, clientDeepErr.Num))
+		ctx.SendSimpleErrorPayload(code, clientDeepErr.Num, fmt.Sprintf("%d %s (err code: %d)", code, BadRequestSyntaxErrorPrefix, clientDeepErr.Num))
 		// log.Println("clientDeepErr.Num", clientDeepErr.Num)
 		return
 	}
@@ -277,7 +277,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if serverDeepErr.StatusCode > 299 && serverDeepErr.StatusCode < 999 {
 			code = serverDeepErr.StatusCode
 		}
-		ctx.SendErrorPayload(code, serverDeepErr.Num, fmt.Sprintf("%d %s (err code: %d)", code, InternalServerErrorPrefix, serverDeepErr.Num))
+		ctx.SendSimpleErrorPayload(code, serverDeepErr.Num, fmt.Sprintf("%d %s (err code: %d)", code, InternalServerErrorPrefix, serverDeepErr.Num))
 		return
 	}
 
@@ -292,7 +292,7 @@ func (router *Router) handleContext(ctx *Context, req *http.Request) {
 		// log.Println("404 routekey", routeKey(req.Method, ctx.End.VersionStr, ctx.End.EntityName, ctx.End.Action))
 		// log.Printf("404 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, ctx.E, routePtr, err)
 		// http.NotFound(w, req)
-		ctx.SendErrorPayload(http.StatusNotFound, NotFoundErrNo, "404 Not Found")
+		ctx.SendSimpleErrorPayload(http.StatusNotFound, NotFoundErrorNumber, "404 Not Found")
 		return
 	}
 
@@ -306,13 +306,13 @@ func (router *Router) handleContext(ctx *Context, req *http.Request) {
 		// log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, ctx.E, routePtr, err)
 		// don't use http.Error!  use our sendErrorPayload instead
 		// http.Error(w, BadRequestExtraneousPrimaryKeyPrefix, http.StatusBadRequest)
-		ctx.SendErrorPayload(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix)
+		ctx.SendSimpleErrorPayload(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrorNumber, BadRequestSyntaxErrorPrefix)
 		return
 	}
 	// Read and update require primary key
 	if (req.Method == "GET" || req.Method == "PATCH" || req.Method == "PUT") && ctx.End.PrimaryKey == 0 && len(ctx.End.Extras) == 0 {
 		// log.Printf("400 for Method:%v, Endpoint %+v, routePtr:%+v, err:%v", req.Method, ctx.E, routePtr, err)
-		ctx.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix)
+		ctx.SendSimpleErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrorNumber, BadRequestSyntaxErrorPrefix)
 		return
 	}
 
@@ -322,7 +322,7 @@ func (router *Router) handleContext(ctx *Context, req *http.Request) {
 		// log.Println("RequiresAuth = true")
 		isAuthorized, failureToAuthErrorNum := routePtr.Authenticator.PerformAuth(routePtr, ctx)
 		if isAuthorized == false {
-			ctx.SendErrorPayload(http.StatusForbidden, int64(failureToAuthErrorNum), "Forbidden")
+			ctx.SendSimpleErrorPayload(http.StatusForbidden, int64(failureToAuthErrorNum), "Forbidden")
 			return
 		}
 	}
@@ -337,13 +337,13 @@ func (router *Router) handleContext(ctx *Context, req *http.Request) {
 	rhr := routePtr.Handler(ctx)
 	if rhr.rerr != nil {
 		rtErr := rhr.rerr
-		ctx.SendErrorPayload(rtErr.code, rtErr.errNo, rtErr.errStr)
+		ctx.SendErrorInfoPayload(rtErr.statusCode, rtErr.errorInfo)
 	} else if rhr.pmap != nil {
 		ctx.WrapAndSendPayloadsMap(rhr.pmap)
 	} else if rhr.crr != nil {
 		rhr.crr(ctx)
 	} else {
-		ctx.SendErrorPayload(http.StatusInternalServerError, 2302586595, "Invalid Handler response")
+		ctx.SendSimpleErrorPayload(http.StatusInternalServerError, 2302586595, "Invalid Handler response")
 	}
 
 	// 8. any post-handler stuff

@@ -49,18 +49,18 @@ func TestUnmarshall(t *testing.T) {
 		t.Logf("92710202703 upw:%+v", upw)
 		t.Error("92710202703", "UnmarshalPayloadWrapper failure len(upw.Alert) != 0", err)
 	}
-	if len(upw.ErrStr) != 0 {
+	if len(upw.ErrorMessage) != 0 {
 		t.Logf("92710202704 upw:%+v", upw)
-		t.Error("92710202704", "UnmarshalPayloadWrapper failure len(upw.ErrStr) != 0", err)
+		t.Error("92710202704", "UnmarshalPayloadWrapper failure len(upw.ErrorMessage) != 0", err)
 	}
-	if upw.ErrNo != 0 {
+	if upw.ErrorNumber != 0 {
 		t.Logf("92710202705 upw:%+v", upw)
-		t.Error("92710202705", "UnmarshalPayloadWrapper failure upw.ErrNo != 0", err)
+		t.Error("92710202705", "UnmarshalPayloadWrapper failure upw.ErrorNumber != 0", err)
 	}
 
 	if len(upw.Payloads) != 2 {
 		t.Logf("92710202706 upw:%+v", upw)
-		t.Fatal("92710202706", "UnmarshalPayloadWrapper failure upw.ErrNo != 0", err)
+		t.Fatal("92710202706", "UnmarshalPayloadWrapper failure upw.ErrorNumber != 0", err)
 	}
 
 	for payloadType, payloadList := range upw.Payloads {

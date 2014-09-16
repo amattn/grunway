@@ -79,12 +79,30 @@ func (ctx *Context) RequestBody() ([]byte, error) {
 // #     # ######  ####   ####  ######   #    ####
 //
 
-func (ctx *Context) MakeRouteHandlerResultError(code int, errNo int64, errStr string) RouteHandlerResult {
-	return RouteHandlerResult{NewRouteError(code, errNo, errStr), nil, nil}
+func (ctx *Context) MakeRouteHandlerResultError(code int, errNo int64, errMsg string) RouteHandlerResult {
+	errInfo := ErrorInfo{
+		ErrorNumber:  errNo,
+		ErrorMessage: errMsg,
+	}
+	return ctx.MakeRouteHandlerResultErrorInfo(code, errInfo)
 }
+func (ctx *Context) MakeRouteHandlerResultDebugError(code int, errNo int64, errMsg string, debugNo int64, debugMsg string) RouteHandlerResult {
+	errInfo := ErrorInfo{
+		ErrorNumber:  errNo,
+		ErrorMessage: errMsg,
+		DebugNumber:  debugNo,
+		DebugMessage: debugMsg,
+	}
+	return ctx.MakeRouteHandlerResultErrorInfo(code, errInfo)
+}
+func (ctx *Context) MakeRouteHandlerResultErrorInfo(code int, errInfo ErrorInfo) RouteHandlerResult {
+	rerr := NewRouteError(code, errInfo)
+	return RouteHandlerResult{rerr, nil, nil}
+}
+
 func (ctx *Context) MakeRouteHandlerResultAlert(code int, errNo int64, alert string) RouteHandlerResult {
 	return ctx.MakeRouteHandlerResultCustom(func(innerCtx *Context) {
-		sendErrorPayload(innerCtx, code, errNo, "", alert)
+		sendErrorPayload(innerCtx, code, ErrorInfo{ErrorNumber: errNo}, alert)
 	})
 }
 func (ctx *Context) MakeRouteHandlerResultPayloads(payloads ...Payload) RouteHandlerResult {
@@ -94,8 +112,13 @@ func (ctx *Context) MakeRouteHandlerResultGenericJSON(v interface{}) RouteHandle
 	jsonBytes, err := json.Marshal(v)
 	code := http.StatusOK
 	if err != nil {
-		code = http.StatusInternalServerError
-		return RouteHandlerResult{NewRouteError(code, 3913952842, "Internal Server Error"), nil, nil}
+		rerr := NewRouteError(
+			http.StatusInternalServerError,
+			ErrorInfo{
+				ErrorNumber:  3913952842,
+				ErrorMessage: "Internal Server Error",
+			})
+		return RouteHandlerResult{rerr, nil, nil}
 	} else {
 		return RouteHandlerResult{nil, nil, func(innerCtx *Context) {
 			if rw, isResponseWriter := innerCtx.w.(http.ResponseWriter); isResponseWriter {
@@ -145,7 +168,7 @@ func (ctx *Context) MakeRouteHandlerResultNotFound(errNo int64) RouteHandlerResu
 
 func (ctx *Context) WrapAndSendPayload(payload Payload) {
 	if payload == nil {
-		ctx.SendErrorPayload(http.StatusInternalServerError, 388359273, "")
+		ctx.SendSimpleErrorPayload(http.StatusInternalServerError, 388359273, "")
 		return
 	}
 	wrapAndSendPayload(ctx, payload)
@@ -162,24 +185,30 @@ func (ctx *Context) WrapAndSendPayloadsMap(payloads PayloadsMap) {
 }
 
 // Error
-func (ctx *Context) SendErrorPayload(code int, errNo int64, errStr string) {
-	enduserErrMsg := errStr
-	if len(errStr) == 0 {
+func (ctx *Context) SendSimpleErrorPayload(code int, errNo int64, errorMsg string) {
+	ctx.SendErrorInfoPayload(code, ErrorInfo{
+		ErrorNumber:  errNo,
+		ErrorMessage: errorMsg,
+	})
+}
+func (ctx *Context) SendErrorInfoPayload(code int, errInfo ErrorInfo) {
+	enduserErrMsg := errInfo.ErrorMessage
+	if len(enduserErrMsg) == 0 {
 		enduserErrMsg = http.StatusText(code)
 	}
-	sendErrorPayload(ctx, code, errNo, enduserErrMsg, "")
+	sendErrorPayload(ctx, code, errInfo, "")
 }
 
 // Alert payloads are designed as a general notification service for clients (ie client must upgrade, server is in maint mode, etc.)
-func (ctx *Context) SendAlertPayload(code int, errNo int64, errStr, alert string) {
-	sendErrorPayload(ctx, code, errNo, errStr, alert)
+func (ctx *Context) SendSimpleAlertPayload(code int, errNo int64, errMsg, alert string) {
+	sendErrorPayload(ctx, code, ErrorInfo{ErrorNumber: errNo, ErrorMessage: errMsg}, alert)
 }
 
 func (ctx *Context) DecodeResponseBodyOrSendError(pc PayloadController, payloadReference interface{}) interface{} {
 	requestBody := ctx.Req.Body
 	if requestBody == nil {
-		errStr := BadRequestPrefix + ": Expected non-empty body"
-		ctx.SendErrorPayload(http.StatusBadRequest, 3003399819, errStr)
+		errMsg := BadRequestPrefix + ": Expected non-empty body"
+		ctx.SendSimpleErrorPayload(http.StatusBadRequest, 3003399819, errMsg)
 		return nil
 	}
 	defer requestBody.Close()
@@ -188,10 +217,10 @@ func (ctx *Context) DecodeResponseBodyOrSendError(pc PayloadController, payloadR
 	err := decoder.Decode(payloadReference)
 
 	if err != nil {
-		errStr := BadRequestPrefix + ": Cannot parse body"
-		derr := deeperror.New(3005488054, errStr, err)
+		errMsg := BadRequestPrefix + ": Cannot parse body"
+		derr := deeperror.New(3005488054, errMsg, err)
 		log.Println("derr", derr)
-		ctx.SendErrorPayload(http.StatusBadRequest, 3005488054, errStr)
+		ctx.SendSimpleErrorPayload(http.StatusBadRequest, derr.Num, errMsg)
 		return nil
 	}
 

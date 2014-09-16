@@ -20,12 +20,19 @@ type Payload interface {
 // Typically, these are arrays of objects designed to be deserialized into entity structs (eg []BookPayload, []AuthorPayload)
 type PayloadsMap map[string][]Payload
 
+type ErrorInfo struct {
+	ErrorNumber  int64  `json:"errorNumber,omitempty"`  // will be 0 on successful responses, non-zero otherwise
+	ErrorMessage string `json:"errorMessage,omitempty"` // end-user appropriate error message
+	DebugNumber  int64  `json:"debugNumber,omitempty"`  // optional debug code
+	DebugMessage string `json:"debugMessage,omitempty"` // optional debug message
+}
+
 // This will typically be serialized into a JSON formatted string
 type PayloadWrapper struct {
 	Payloads PayloadsMap `json:",omitempty"` // key is type, value is list of payloads of that type
-	ErrNo    int64       `json:",omitempty"` // will be 0 on successful responses, non-zero otherwise
-	ErrStr   string      `json:",omitempty"` // end-user appropriate error message
-	Alert    string      `json:",omitempty"` // used when the client end user needs to be alerted of something: (eg, maintenance mode, downtime, sercurity, required update, etc.)
+
+	ErrorInfo
+	Alert string `json:",omitempty"` // used when the client end user needs to be alerted of something: (eg, maintenance mode, downtime, sercurity, required update, etc.)
 }
 
 //  #####
@@ -84,35 +91,40 @@ func wrapAndSendPayloadsMap(ctx *Context, pmap PayloadsMap) {
 }
 
 // Error or alerts
-func sendErrorPayload(ctx *Context, code int, errNo int64, errStr, alert string) {
+func sendErrorPayload(ctx *Context, code int, errInfo ErrorInfo, alert string) {
 	payloadWrapper := NewPayloadWrapper()
-	payloadWrapper.ErrNo = errNo
-	payloadWrapper.ErrStr = errStr
+	payloadWrapper.ErrorInfo = errInfo
 	payloadWrapper.Alert = alert
 
-	if errNo != 0 {
-		ctx.AddHeader("X-ErrorNum", fmt.Sprintf("%d", errNo))
+	if errInfo.ErrorNumber != 0 {
+		ctx.AddHeader("Grunway-ErrorNumber", fmt.Sprintf("%d", errInfo.ErrorNumber))
 	}
-	if len(errStr) > 1 {
-		ctx.AddHeader("X-ErrorStr", fmt.Sprintf("%s", errStr))
+	if len(errInfo.ErrorMessage) > 1 {
+		ctx.AddHeader("Grunway-ErrorMessage", fmt.Sprintf("%s", errInfo.ErrorMessage))
+	}
+	if errInfo.DebugNumber != 0 {
+		ctx.AddHeader("Grunway-DebugNumber", fmt.Sprintf("%d", errInfo.DebugNumber))
+	}
+	if len(errInfo.DebugMessage) > 1 {
+		ctx.AddHeader("Grunway-DebugMessage", fmt.Sprintf("%s", errInfo.DebugMessage))
 	}
 	if len(alert) > 1 {
-		ctx.AddHeader("X-Alert", fmt.Sprintf("%s", alert))
+		ctx.AddHeader("Grunway-Alert", fmt.Sprintf("%s", alert))
 	}
 
 	writePayloadWrapper(ctx, code, payloadWrapper)
 }
 
-// Ok payloadWrapper is just a json dict w/ one kv: ErrNo == 0
+// Ok payloadWrapper is just a json dict w/ one kv: ErrorNumber == 0
 func sendOkPayload(ctx *Context) {
 	writePayloadWrapper(ctx, http.StatusOK, NewPayloadWrapper())
 }
 
-// NotFound payloadWrapper is just a json dict w/  kv: ErrNo == <errNo>, ErrStr = "Not Found"
+// NotFound payloadWrapper is just a json dict w/  kv: ErrorNumber == <errNo>, ErrorMessage = "Not Found"
 func sendNotFoundPayload(ctx *Context, errNo int64) {
 	payloadWrapper := NewPayloadWrapper()
-	payloadWrapper.ErrNo = errNo
-	payloadWrapper.ErrStr = "Not Found"
+	payloadWrapper.ErrorNumber = errNo
+	payloadWrapper.ErrorMessage = "Not Found"
 	writePayloadWrapper(ctx, http.StatusNotFound, payloadWrapper)
 }
 
@@ -145,7 +157,7 @@ func writePayloadWrapper(ctx *Context, code int, payloadWrapper *PayloadWrapper)
 			ctx.AddHeader("X-ErrorNum", fmt.Sprintf("%d", derr.Num))
 			ctx.AddHeader("X-ErrorStr", fmt.Sprintf("%s", derr.EndUserMsg))
 			responseWriter.WriteHeader(derr.StatusCode)
-			fmt.Fprintf(responseWriter, "{\"ErrNo\":%d,\"ErrStr\":%s}", derr.Num, derr.EndUserMsg)
+			fmt.Fprintf(responseWriter, "{\"ErrorNumber\":%d,\"ErrorMessage\":%s}", derr.Num, derr.EndUserMsg)
 		}
 		log.Println(derr)
 	} else {
@@ -192,10 +204,10 @@ func MarshallPayloadWrapper(pw *PayloadWrapper) ([]byte, error) {
 //
 
 type unmarshallingPayloadWrapper struct {
-	Payloads map[string][]json.RawMessage `json:",omitempty"` // key is type, value is list of payloads of that type
-	ErrNo    int64                        `json:",omitempty"` // will be 0 on successful responses, non-zero otherwise
-	ErrStr   string                       `json:",omitempty"` // end-user appropriate error message
-	Alert    string                       `json:",omitempty"` // used when the client end user needs to be alerted of something: (eg, maintenance mode, downtime, sercurity, required update, etc.)
+	Payloads     map[string][]json.RawMessage `json:",omitempty"` // key is type, value is list of payloads of that type
+	ErrorNumber  int64                        `json:",omitempty"` // will be 0 on successful responses, non-zero otherwise
+	ErrorMessage string                       `json:",omitempty"` // end-user appropriate error message
+	Alert        string                       `json:",omitempty"` // used when the client end user needs to be alerted of something: (eg, maintenance mode, downtime, sercurity, required update, etc.)
 }
 
 func UnmarshalPayloadWrapper(jsonBytes []byte, supportedPayloads ...Payload) (*PayloadWrapper, error) {
@@ -211,8 +223,8 @@ func UnmarshalPayloadWrapper(jsonBytes []byte, supportedPayloads ...Payload) (*P
 	}
 
 	// do the easy stuff first
-	pw.ErrNo = upw.ErrNo
-	pw.ErrStr = upw.ErrStr
+	pw.ErrorNumber = upw.ErrorNumber
+	pw.ErrorMessage = upw.ErrorMessage
 	pw.Alert = upw.Alert
 	pw.Payloads = make(PayloadsMap)
 

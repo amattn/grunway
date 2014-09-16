@@ -21,7 +21,7 @@ func StandardCreateHandler(controller CreatePerformer, ctx *Context, createReque
 	defer requestBody.Close()
 
 	if ctx.End.PrimaryKey != 0 {
-		return ctx.MakeRouteHandlerResultError(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrNo, BadRequestSyntaxErrorPrefix+" Cannot set primary key")
+		return ctx.MakeRouteHandlerResultError(http.StatusBadRequest, BadRequestExtraneousPrimaryKeyErrorNumber, BadRequestSyntaxErrorPrefix+" Cannot set primary key")
 	}
 
 	// parse the json
@@ -139,7 +139,7 @@ type DeleteValidator interface {
 
 func StandardDeleteHandler(ctx *Context, controller DeletePerformer) {
 	if ctx.End.PrimaryKey <= 0 {
-		ctx.SendErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrNo, BadRequestPrefix)
+		ctx.SendSimpleErrorPayload(http.StatusBadRequest, BadRequestMissingPrimaryKeyErrorNumber, BadRequestPrefix)
 		return
 	}
 
@@ -148,7 +148,7 @@ func StandardDeleteHandler(ctx *Context, controller DeletePerformer) {
 	if isValidator {
 		isValid, errNo := validator.DeleteRequestIsValid(ctx)
 		if isValid == false {
-			ctx.SendErrorPayload(http.StatusBadRequest, errNo, BadRequestPrefix)
+			ctx.SendSimpleErrorPayload(http.StatusBadRequest, errNo, BadRequestPrefix)
 			return
 		}
 	}
@@ -156,7 +156,7 @@ func StandardDeleteHandler(ctx *Context, controller DeletePerformer) {
 	// delete entity
 	didSucceed, errNo := controller.PerformDelete(ctx)
 	if didSucceed == false {
-		ctx.SendErrorPayload(http.StatusInternalServerError, errNo, InternalServerErrorPrefix)
+		ctx.SendSimpleErrorPayload(http.StatusInternalServerError, errNo, InternalServerErrorPrefix)
 		return
 	}
 
