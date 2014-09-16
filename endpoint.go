@@ -33,6 +33,20 @@ func (e *Endpoint) Version() VersionUint {
 	return e.version
 }
 
+// exported for other packages to be able to unit test.
+func ParsePathForTesting(urlPtr *url.URL, prefix string) (endpoint Endpoint, err error) {
+	endpoint, clientErr, serverErr := parsePath(urlPtr, prefix)
+
+	if serverErr != nil {
+		err = serverErr
+	}
+	if clientErr != nil {
+		err = clientErr
+	}
+
+	return endpoint, err
+}
+
 func parsePath(urlPtr *url.URL, prefix string) (endpoint Endpoint, clientErr, serverErr *deeperror.DeepError) {
 	urlPath := strings.Trim(urlPtr.Path, "/")
 	prefix = strings.TrimLeft(prefix, "/")
