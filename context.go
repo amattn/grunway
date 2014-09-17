@@ -109,8 +109,10 @@ func (ctx *Context) MakeRouteHandlerResultPayloads(payloads ...Payload) RouteHan
 	return RouteHandlerResult{nil, MakePayloadMapFromPayloads(payloads...), nil}
 }
 func (ctx *Context) MakeRouteHandlerResultGenericJSON(v interface{}) RouteHandlerResult {
+	return ctx.MakeRouteHandlerResultStatusGenericJSON(http.StatusOK, v)
+}
+func (ctx *Context) MakeRouteHandlerResultStatusGenericJSON(statusCode int, v interface{}) RouteHandlerResult {
 	jsonBytes, err := json.Marshal(v)
-	code := http.StatusOK
 	if err != nil {
 		rerr := NewRouteError(
 			http.StatusInternalServerError,
@@ -122,7 +124,7 @@ func (ctx *Context) MakeRouteHandlerResultGenericJSON(v interface{}) RouteHandle
 	} else {
 		return RouteHandlerResult{nil, nil, func(innerCtx *Context) {
 			if rw, isResponseWriter := innerCtx.w.(http.ResponseWriter); isResponseWriter {
-				rw.WriteHeader(code)
+				rw.WriteHeader(statusCode)
 				if len(jsonBytes) == 0 {
 					log.Println("jsonBytes", jsonBytes, innerCtx.Req.URL)
 				}
