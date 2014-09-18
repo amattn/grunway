@@ -112,6 +112,7 @@ func (ctx *Context) MakeRouteHandlerResultGenericJSON(v interface{}) RouteHandle
 	return ctx.MakeRouteHandlerResultStatusGenericJSON(http.StatusOK, v)
 }
 func (ctx *Context) MakeRouteHandlerResultStatusGenericJSON(statusCode int, v interface{}) RouteHandlerResult {
+	ctx.SetHeader(httpHeaderContentType, httpHeaderContentTypeJSON)
 	jsonBytes, err := json.Marshal(v)
 	if err != nil {
 		rerr := NewRouteError(
