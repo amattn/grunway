@@ -1,8 +1,8 @@
 package grunway
 
 const (
-	internal_BUILD_NUMBER   = 43
-	internal_VERSION_STRING = "0.7.1"
+	internal_BUILD_NUMBER   = 44
+	internal_VERSION_STRING = "0.7.2"
 )
 
 func BuildNumber() int64 {

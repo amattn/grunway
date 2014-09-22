@@ -182,8 +182,18 @@ func (router *Router) AllRoutesCount() int {
 }
 
 // Basically just used for logging and debugging.
-func (router *Router) AllRoutesSummary() string {
-	// log.Println("All Routes:")
+// the first addon is a prefix, all remaining addons are treated as suffixes and appended to the end
+func (router *Router) AllRoutesDescription(addons ...string) []string {
+	// log.Println("104194464 All Routes:")
+
+	var prefix string
+	var suffix string
+	if len(addons) >= 1 {
+		prefix = addons[0]
+	}
+	if len(addons) >= 2 {
+		suffix = strings.Join(addons[1:], " ")
+	}
 
 	count := len(router.RouteMap)
 
@@ -213,16 +223,34 @@ func (router *Router) AllRoutesSummary() string {
 			routePtr.HandlerName,
 			handlerType,
 		)
+
+		line = strings.Join([]string{prefix, line, suffix}, " ")
+		line = strings.TrimSpace(line)
+
 		lines = append(lines, line)
 	}
-	// log.Println("End Routes.")
+	// log.Println("104194464 End Routes")
 
-	// log.Println("RouteKeys")
+	// log.Println("104194464 RouteKeys")
 	// for routeKey, _ := range router.RouteMap {
 	// 	log.Println(routeKey)
 	// }
+	return lines
+}
 
-	return strings.Join(lines, "")
+// Basically just used for logging and debugging.
+// the first addon is a prefix, all remaining addons are treated as suffixes and appended to the end
+func (router *Router) AllRoutesSummary(addons ...string) string {
+	lines := router.AllRoutesDescription(addons...)
+	lines = append(lines, "") // basically, append an newline at the end.
+	return strings.Join(lines, "\n")
+}
+
+func (router *Router) LogAllRoutes(addons ...string) {
+	lines := router.AllRoutesDescription(addons...)
+	for _, line := range lines {
+		log.Println(line)
+	}
 }
 
 //  #####                              #     # ####### ####### ######

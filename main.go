@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"runtime"
+	"time"
 )
 
 func Start(routerPtr *Router, host string) error {
@@ -15,9 +16,11 @@ func Start(routerPtr *Router, host string) error {
 	}
 
 	log.Println("All Routes:")
-	fmt.Print(routerPtr.AllRoutesSummary())
+	routerPtr.LogAllRoutes("↳ Route:")
 
 	log.Println("Listening from ", host)
+	time.Sleep(100 * time.Millisecond) // give the log statements time to print...
+
 	err := http.ListenAndServe(host, routerPtr)
 	if err != nil {
 		return fmt.Errorf("3621140792 http.ListenAndServe returned error:", err)
